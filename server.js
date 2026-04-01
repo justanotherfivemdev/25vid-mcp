@@ -19,6 +19,11 @@ const {
 
 // Initialize Express
 const app = express();
+
+// Trust the first proxy hop (Nginx/Cloudflare) so req.ip reflects the real client IP.
+// Without this, rate limiting and IP restriction see the proxy address instead.
+app.set("trust proxy", 1);
+
 app.use(express.json());
 
 // CORS middleware — required for GitHub Copilot and browser-based MCP clients

@@ -65,87 +65,75 @@ Configure the MCP server in your repository or organization settings:
 
 ## Cloudflare Configuration
 
-If the MCP server is behind Cloudflare (e.g., `mcp.25thvid.com`), specific settings are required for GitHub Copilot to connect successfully.
+If the MCP server is behind Cloudflare (e.g., `mcp.25thvid.com`), specific settings are required for GitHub Copilot to connect successfully. The rules below are **path/hostname based**, not IP based — GitHub's Meta API IP list is not exhaustive and they do not recommend relying on allow-by-IP unless you monitor it continuously.
 
-### Required DNS Settings
+### 1. DNS
 
-| Setting | Value | Notes |
-|---|---|---|
-| **DNS Record** | `A` or `CNAME` pointing to your origin | Standard |
-| **Proxy Status** | **Proxied** (orange cloud) is fine, but see rules below | If issues persist, try **DNS only** (gray cloud) to bypass Cloudflare entirely |
+Create an `A` record:
 
-### Required Cloudflare Settings
+| Setting | Value |
+|---|---|
+| **Name** | `mcp` |
+| **Content** | Your origin server IP |
+| **Proxy status** | Start with **DNS only** (gray cloud) for initial validation, then switch to **Proxied** (orange cloud) once the origin is confirmed working |
 
-#### 1. SSL/TLS
+> **Tip**: Starting with DNS only is the fastest way to separate "origin/Nginx problem" from "Cloudflare problem." If DNS-only works and proxied fails, the problem is Cloudflare, not your app.
 
-- **Encryption mode**: Set to **Full (strict)** if you have an origin certificate, or **Full** otherwise
+### 2. SSL/TLS
+
+- **Encryption mode**: **Full (strict)** if your origin has a valid certificate (recommended), or **Full** otherwise
 - **Always Use HTTPS**: Enabled
 - **Minimum TLS Version**: 1.2
 
-#### 2. Firewall / WAF — Allow GitHub Traffic
+### 3. WAF Custom Rule — Skip for MCP Traffic
 
-GitHub Copilot connects from GitHub's server infrastructure. You **must** allow these requests through Cloudflare's firewall.
+Create a **WAF Custom Rule** (Security → WAF → Custom rules) that matches the MCP endpoint by **hostname and path** — no IP allowlisting required:
 
-**Create a WAF Custom Rule** (Security → WAF → Custom rules):
-
-- **Rule name**: `Allow GitHub MCP`
+- **Rule name**: `Allow MCP Traffic`
 - **Expression**:
   ```
-  (http.request.uri.path eq "/mcp" and ip.src in {
-    140.82.112.0/20
-    143.55.64.0/20
-    185.199.108.0/22
-    192.30.252.0/22
-    20.201.28.151/32
-    20.205.243.166/32
-    20.26.156.210/32
-    20.27.177.113/32
-    20.29.134.17/32
-    20.87.245.0/32
-    4.208.26.197/32
-    20.233.83.145/32
-    20.248.137.48/32
-    20.207.73.82/32
-    20.175.192.146/32
-    20.233.54.53/32
-    20.201.28.152/32
-    20.26.156.215/32
-    4.208.26.200/32
-  })
+  (http.host eq "mcp.25thvid.com" and starts_with(http.request.uri.path, "/mcp"))
   ```
-- **Action**: **Skip** (skip all remaining custom rules, or at minimum skip rate limiting, bot protection, and managed rules)
+- **Action**: **Skip**
+- **Skip**:
+  - Remaining custom rules
+  - Rate limiting rules
+  - Managed rules
+  - Super Bot Fight Mode (if you have that product)
 
-> **Tip**: GitHub's IP ranges change periodically. Fetch the latest from:
-> ```bash
-> curl -s https://api.github.com/meta | jq '.hooks, .api, .actions'
-> ```
+> **Note on GitHub IPs**: You may optionally layer `ip.src in { ... }` on top of this rule for defense in depth, but do not rely on it as the sole filter. GitHub's IP ranges change and the Meta API list is not guaranteed to be complete.
 
-#### 3. Bot Protection
+### 4. Bot Protection
 
-If you have **Bot Fight Mode** or **Super Bot Fight Mode** enabled:
+This is critical:
 
-- Either **disable** it globally, or
-- Add an exception for the `/mcp` path in the bot management rules
-- Bot fight mode can block GitHub's automated POST requests, causing "Error POSTing to endpoint"
+- **Plain Bot Fight Mode** (free tier) **cannot be bypassed by WAF Skip rules**. If it is enabled on the zone, it can still block API traffic like MCP. Either **disable it** for the zone or move the MCP service to a separate subdomain/zone where Bot Fight Mode is not active.
+- **Super Bot Fight Mode** and **Enterprise bot controls** can be skipped by the WAF rule above.
 
-#### 4. Rate Limiting
+### 5. Cache and Performance
+
+For `mcp.25thvid.com` (or at least `/mcp*`), create a **Configuration Rule**:
+
+- **Cache Level**: Bypass
+- **Disable Performance** (optional — prevents Cloudflare from modifying API/SSE responses)
+- **SSL**: Full (Strict)
+
+This avoids Cloudflare caching or optimizing API/SSE traffic.
+
+### 6. Rate Limiting
 
 If you have Cloudflare rate limiting rules:
 
-- Ensure the `/mcp` path is excluded or has a high enough threshold
+- The WAF Skip rule above should skip them for `/mcp`, but verify in Security → Events
 - GitHub Copilot may make multiple rapid requests during initialization and tool discovery
 
-#### 5. Under Attack Mode
+### 7. Timeout Expectations
 
-- **Must be OFF** — "Under Attack" mode shows a JavaScript challenge page that completely blocks API/MCP traffic
+Cloudflare's default proxy read timeout is ~100–120 seconds. Long-lived SSE streams can hit a **524 timeout** if the origin does not respond in time.
 
-#### 6. Page Rules / Configuration Rules (Optional Optimization)
-
-Create a **Configuration Rule** for `mcp.25thvid.com/mcp*`:
-
-- **Cache Level**: Bypass
-- **Disable Performance** (optional — prevents Cloudflare from modifying responses)
-- **SSL**: Full (Strict)
+- For initial Copilot validation, focus on the `POST /mcp` path first (short request/response cycles)
+- If SSE becomes flaky through the proxy, switch to **DNS only** on the MCP subdomain as a fallback
+- **Under Attack Mode** must be **OFF** — it shows a JavaScript challenge page that completely blocks API/MCP traffic
 
 ### Verifying Connectivity
 
@@ -184,7 +172,7 @@ A successful response looks like:
 }
 ```
 
-If you see a Cloudflare challenge page, HTML, or a 403/1020 error instead, review the firewall and bot protection settings above.
+If you see a Cloudflare challenge page, HTML, or a 403/1020 error instead, review the WAF and bot protection settings above.
 
 ## Troubleshooting
 
@@ -194,8 +182,8 @@ This means GitHub Copilot could not reach the `/mcp` endpoint. Check:
 
 1. **Server is running**: `curl https://mcp.25thvid.com/health` should return `{"status":"ok"}`
 2. **CORS headers present**: `curl -v -X OPTIONS https://mcp.25thvid.com/mcp` should return `204` with `Access-Control-Allow-*` headers
-3. **Cloudflare not blocking**: Check Cloudflare's **Security → Events** log for blocked requests from GitHub IPs
-4. **Bot protection off**: Cloudflare Bot Fight Mode blocks automated POST requests
+3. **Cloudflare not blocking**: Check Cloudflare's **Security → Events** log for blocked requests
+4. **Bot Fight Mode off**: Plain Bot Fight Mode blocks automated POST requests and cannot be skipped by WAF rules
 5. **SSL is correct**: Ensure `Full (Strict)` SSL mode and valid origin certificate
 
 ### "0 tool calls / no activity"
@@ -212,11 +200,11 @@ A WAF or firewall rule is blocking the request. Go to **Security → Events** in
 
 ### Cloudflare Error 524 (Timeout)
 
-The SSE connection exceeded Cloudflare's proxy timeout (100 seconds on free plans). Options:
+The SSE connection exceeded Cloudflare's proxy read timeout (~100–120 seconds). Options:
 
-- Upgrade to a Cloudflare plan with longer timeouts
-- Use **DNS Only** (gray cloud) mode to bypass the proxy for this subdomain
-- The POST-based MCP interactions are not affected — only long-lived SSE streams
+- Switch to **DNS Only** (gray cloud) mode for the MCP subdomain to bypass the proxy entirely
+- Focus on `POST /mcp` interactions — these are short-lived and not affected
+- Upgrade to a Cloudflare plan with longer proxy read timeouts if long-lived SSE is needed
 
 ## Environment Variables
 
