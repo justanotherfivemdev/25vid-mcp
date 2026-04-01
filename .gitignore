@@ -3,3 +3,4 @@ node_modules
 logs
 *.log
 docker-compose.override.yml
+enfusion-mcp-BK/
