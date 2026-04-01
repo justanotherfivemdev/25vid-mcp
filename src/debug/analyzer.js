@@ -10,17 +10,17 @@ const config = require("../config");
 // Constants
 const MAX_OUTPUT_ERRORS = 100;
 
-// Error patterns to detect in logs
+// Error patterns to detect in logs (ordered specific → generic)
 const ERROR_PATTERNS = [
-  { pattern: /Error:/i, category: "runtime_error", severity: "high" },
-  { pattern: /ENOENT/i, category: "file_not_found", severity: "medium" },
-  { pattern: /EACCES/i, category: "permission_denied", severity: "high" },
-  { pattern: /ECONNREFUSED/i, category: "connection_refused", severity: "high" },
-  { pattern: /ETIMEDOUT/i, category: "timeout", severity: "medium" },
   { pattern: /SyntaxError/i, category: "syntax_error", severity: "high" },
   { pattern: /TypeError/i, category: "type_error", severity: "high" },
   { pattern: /ReferenceError/i, category: "reference_error", severity: "high" },
   { pattern: /ENOMEM/i, category: "out_of_memory", severity: "critical" },
+  { pattern: /ENOENT/i, category: "file_not_found", severity: "medium" },
+  { pattern: /EACCES/i, category: "permission_denied", severity: "high" },
+  { pattern: /ECONNREFUSED/i, category: "connection_refused", severity: "high" },
+  { pattern: /ETIMEDOUT/i, category: "timeout", severity: "medium" },
+  { pattern: /Error:/i, category: "runtime_error", severity: "high" },
   { pattern: /Deploy WARNING/i, category: "deploy_warning", severity: "medium" },
   { pattern: /Deploy FAIL/i, category: "deploy_failure", severity: "critical" },
   { pattern: /health check failed/i, category: "health_check_failure", severity: "high" },
@@ -31,14 +31,40 @@ const ERROR_PATTERNS = [
 
 /**
  * Parse a log file and extract structured entries.
+ * Reads only a bounded window from the end of the file to avoid
+ * loading large logs entirely into memory.
  * @param {string} filePath - Path to the log file
  * @param {number} maxLines - Maximum number of lines to read from the end
  * @returns {string[]} Array of log lines
  */
 function readLogLines(filePath, maxLines = 500) {
   try {
-    const data = fs.readFileSync(filePath, "utf-8");
-    return data.split("\n").filter(Boolean).slice(-maxLines);
+    const stats = fs.statSync(filePath);
+    const fileSize = stats.size;
+
+    if (fileSize === 0) {
+      return [];
+    }
+
+    // Heuristic: assume an upper-bound average line length to cap bytes read.
+    const APPROX_BYTES_PER_LINE = 2000;
+    const bytesToRead = Math.min(
+      fileSize,
+      Math.max(1, maxLines) * APPROX_BYTES_PER_LINE
+    );
+
+    const start = Math.max(0, fileSize - bytesToRead);
+    const length = fileSize - start;
+
+    const fd = fs.openSync(filePath, "r");
+    try {
+      const buffer = Buffer.alloc(length);
+      fs.readSync(fd, buffer, 0, length, start);
+      const data = buffer.toString("utf-8");
+      return data.split("\n").filter(Boolean).slice(-maxLines);
+    } finally {
+      fs.closeSync(fd);
+    }
   } catch {
     return [];
   }

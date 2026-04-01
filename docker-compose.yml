@@ -37,6 +37,7 @@ services:
       - MCP_WORKSPACE=/workspace
       - MCP_ADMIN_TOKEN=${MCP_ADMIN_TOKEN}
       - MCP_ADMIN_PORT=8788
+      - HEALTHCHECK_PORT=8788
     command: ["node", "-e", "require('./src/admin/server').startAdmin()"]
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8788/health',(r)=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))})"]

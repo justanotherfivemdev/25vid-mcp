@@ -2,7 +2,7 @@
 // Admin MCP Server
 // =========================
 // Separate MCP server for admin-only operations.
-// Protected by token authentication and IP restrictions.
+// Protected by token authentication. Additional IP restrictions may be enforced at the network layer.
 // All destructive actions require a confirmation step.
 
 const express = require("express");
@@ -24,7 +24,9 @@ function adminAuthMiddleware(req, res, next) {
   // Skip auth for health check
   if (req.path === "/health") return next();
 
-  const token = req.headers["x-admin-token"] || req.query.token;
+  const token =
+    req.headers["x-admin-token"] ||
+    (process.env.NODE_ENV !== "production" ? req.query.token : undefined);
   const adminToken = process.env.MCP_ADMIN_TOKEN;
 
   if (!adminToken) {
@@ -143,16 +145,6 @@ const adminTools = [
 // ========================
 
 const fs = require("fs");
-const { execFile } = require("child_process");
-
-function execAsync(cmd, args, opts) {
-  return new Promise((resolve, reject) => {
-    execFile(cmd, args, { timeout: 30000, ...opts }, (err, stdout, stderr) => {
-      if (err) return reject(new Error(stderr || err.message));
-      resolve(stdout);
-    });
-  });
-}
 
 function appendDeployLog(message) {
   const timestamp = new Date().toISOString();
@@ -262,9 +254,10 @@ const toolHandlers = {
 // ========================
 
 async function adminMcpHandler(req, res) {
-  const { id, method, params } = req.body;
+  const body = req.body || {};
+  const { id, method, params } = body;
 
-  const validationError = validateJsonRpc(req.body);
+  const validationError = validateJsonRpc(body);
   if (validationError) {
     return res.json(jsonRpcError(id, validationError.code, validationError.message));
   }

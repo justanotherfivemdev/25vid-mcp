@@ -9,7 +9,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Production MCP server for AI-assisted development workflows",
+  "description": "25th Infantry Division — General-purpose MCP server for AI-assisted development, deployment, and community operations",
   "devDependencies": {
     "@types/node": "^25.5.0",
     "tsx": "^4.21.0",
