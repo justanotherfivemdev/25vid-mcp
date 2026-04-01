@@ -4,12 +4,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/server.test.js"
+    "test": "node --test test/server.test.js test/admin.test.js test/debug.test.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Production MCP server for AI-assisted development workflows",
+  "description": "25th Infantry Division — General-purpose MCP server for AI-assisted development, deployment, and community operations",
   "devDependencies": {
     "@types/node": "^25.5.0",
     "tsx": "^4.21.0",

@@ -17,6 +17,11 @@ const tools = [
   require("./get_git_diff"),
   require("./get_recent_commits"),
   require("./get_file_metadata"),
+  require("./analyze_errors"),
+  require("./generate_html_scaffold"),
+  require("./generate_css_theme"),
+  require("./fivem_resource_scaffold"),
+  require("./project_knowledge"),
 ];
 
 /**

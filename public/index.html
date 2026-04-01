@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>25th Infantry Division — MCP Operations Center</title>
+  <style>
+    :root {
+      --bg: #0a0e13;
+      --surface: #111820;
+      --surface-raised: #171f2b;
+      --border: #1e2a3a;
+      --border-accent: #2a4a2e;
+      --text: #d4dce8;
+      --text-dim: #6e7f94;
+      --text-bright: #f0f4f8;
+      --accent: #4ade80;
+      --accent-dim: rgba(74,222,128,0.12);
+      --accent-glow: rgba(74,222,128,0.25);
+      --gold: #d4a843;
+      --gold-dim: rgba(212,168,67,0.15);
+      --success: #4ade80;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --blue: #60a5fa;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    /* Header / Top Bar */
+    header {
+      background: linear-gradient(135deg, var(--surface) 0%, #0f1a12 100%);
+      border-bottom: 2px solid var(--border-accent);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent) 0%, #16a34a 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      color: #000;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .brand-text h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: 0.5px;
+    }
+    .brand-text .subtitle {
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .status-badge {
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .status-ok {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(74,222,128,0.3);
+    }
+    .status-err {
+      background: rgba(239,68,68,0.12);
+      color: var(--error);
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+    .refresh-info {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    /* Grid Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 20px 24px;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: var(--border-accent); }
+    .card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface-raised);
+    }
+    .card-header h2 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-header .badge {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+    .card-body {
+      padding: 16px 18px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .card-body::-webkit-scrollbar { width: 5px; }
+    .card-body::-webkit-scrollbar-track { background: transparent; }
+    .card-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    /* Metrics */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .metric-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+    .metric-value {
+      font-size: 22px;
+      font-weight: 800;
+      margin-top: 4px;
+      color: var(--accent);
+    }
+    /* Logs */
+    .log-entry {
+      font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(30,42,58,0.6);
+      word-break: break-all;
+    }
+    .log-entry:last-child { border-bottom: none; }
+    .log-time { color: var(--text-dim); margin-right: 8px; }
+    .log-tool { color: var(--blue); font-weight: 700; }
+    .log-success { color: var(--success); }
+    .log-error { color: var(--error); }
+    /* Git */
+    .git-file {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 5px 0;
+      display: flex;
+      gap: 10px;
+    }
+    .git-status-code {
+      color: var(--gold);
+      font-weight: 800;
+      min-width: 22px;
+    }
+    /* Deploy */
+    .deploy-line {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.9;
+      color: var(--text-dim);
+      padding: 2px 0;
+    }
+    /* Empty state */
+    .empty-state {
+      color: var(--text-dim);
+      font-size: 13px;
+      text-align: center;
+      padding: 32px 16px;
+    }
+    /* Tools section */
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+    }
+    .tool-chip {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 12px;
+    }
+    .tool-chip .tool-name {
+      color: var(--accent);
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+    }
+    .tool-chip .tool-desc {
+      color: var(--text-dim);
+      font-size: 11px;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-dim);
+      font-size: 11px;
+      border-top: 1px solid var(--border);
+      margin-top: 8px;
+    }
+    footer strong { color: var(--gold); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">25</div>
+      <div class="brand-text">
+        <h1>25th Infantry Division</h1>
+        <div class="subtitle">MCP Operations Center</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="health-badge" class="status-badge status-ok">Checking...</span>
+      <span class="refresh-info">Auto-refresh: 10s</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- System Health -->
+    <div class="card">
+      <div class="card-header">
+        <h2><span>&#x1F3AF;</span> System Health</h2>
+        <span class="badge" id="health-time"></span>
+      </div>
+      <div class="card-body">
+        <div class="metric-grid" id="system-metrics">
+          <div class="metric"><div class="metric-label">Status</div><div class="metric-value" id="m-status">—</div></div>
+          <div class="metric"><div class="metric-label">Uptime</div><div class="metric-value" id="m-uptime">—</div></div>
+          <div class="metric"><div class="metric-label">Memory</div><div class="metric-value" id="m-memory">—</div></div>
+          <div class="metric"><div class="metric-label">CPU Load</div><div class="metric-value" id="m-load">—</div></div>
+          <div class="metric"><div class="metric-label">Node.js</div><div class="metric-value" id="m-node">—</div></div>
+          <div class="metric"><div class="metric-label">Free RAM</div><div class="metric-value" id="m-freemem">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Git Status -->
+    <div class="card">
+      <div class="card-header">
+        <h2><span>&#x1F500;</span> Git Status</h2>
+        <span class="badge" id="git-branch"></span>
+      </div>
+      <div class="card-body" id="git-body">
+        <div class="empty-state">Loading...</div>
+      </div>
+    </div>
+
+    <!-- MCP Tools -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <h2><span>&#x1F9E0;</span> Available MCP Tools</h2>
+        <span class="badge" id="tools-count"></span>
+      </div>
+      <div class="card-body">
+        <div class="tools-grid" id="tools-body">
+          <div class="empty-state">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP Activity -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <h2><span>&#x26A1;</span> MCP Activity</h2>
+        <span class="badge" id="activity-count"></span>
+      </div>
+      <div class="card-body" id="activity-body">
+        <div class="empty-state">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Deploy Logs -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <h2><span>&#x1F680;</span> Deploy Logs</h2>
+        <span class="badge" id="deploy-count"></span>
+      </div>
+      <div class="card-body" id="deploy-body">
+        <div class="empty-state">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <strong>25th Infantry Division</strong> &mdash; "Tropic Lightning" &mdash; AI-Powered MCP Operations Platform
+  </footer>
+
+  <script>
+    var API_BASE = '';
+    var REFRESH_INTERVAL = 10000;
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function formatUptime(seconds) {
+      var d = Math.floor(seconds / 86400);
+      var h = Math.floor((seconds % 86400) / 3600);
+      var m = Math.floor((seconds % 3600) / 60);
+      if (d > 0) return d + 'd ' + h + 'h';
+      if (h > 0) return h + 'h ' + m + 'm';
+      return m + 'm ' + Math.floor(seconds % 60) + 's';
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '';
+      return new Date(ts).toLocaleTimeString();
+    }
+
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function fetchJSON(url) {
+      return fetch(API_BASE + url)
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .catch(function(e) {
+          console.error('Fetch error:', url, e);
+          return null;
+        });
+    }
+
+    function updateHealth() {
+      return fetchJSON('/api/system/health').then(function(data) {
+        var badge = document.getElementById('health-badge');
+        if (!data) {
+          badge.className = 'status-badge status-err';
+          badge.textContent = 'OFFLINE';
+          return;
+        }
+        badge.className = 'status-badge status-ok';
+        badge.textContent = 'OPERATIONAL';
+        document.getElementById('health-time').textContent = formatTime(data.timestamp);
+        document.getElementById('m-status').textContent = data.status === 'ok' ? '✓ OK' : '✗ ERR';
+        document.getElementById('m-uptime').textContent = formatUptime(data.uptime);
+        document.getElementById('m-memory').textContent = formatBytes(data.memory.heapUsed);
+        document.getElementById('m-load').textContent = data.os.loadAvg[0].toFixed(2);
+        document.getElementById('m-node').textContent = data.nodeVersion;
+        document.getElementById('m-freemem').textContent = formatBytes(data.os.freeMem);
+      });
+    }
+
+    function updateGit() {
+      return fetchJSON('/api/git/status').then(function(data) {
+        var body = document.getElementById('git-body');
+        var branchEl = document.getElementById('git-branch');
+        if (!data || data.error) {
+          body.innerHTML = '<div class="empty-state">Git not available</div>';
+          return;
+        }
+        branchEl.textContent = 'Branch: ' + escapeHtml(data.branch);
+        if (data.clean) {
+          body.innerHTML = '<div class="empty-state" style="color:var(--success)">&#10003; Working tree clean</div>';
+        } else {
+          body.innerHTML = data.changes.map(function(c) {
+            return '<div class="git-file"><span class="git-status-code">' +
+              escapeHtml(c.status) + '</span><span>' + escapeHtml(c.file) + '</span></div>';
+          }).join('');
+        }
+      });
+    }
+
+    function updateTools() {
+      return fetchJSON('/mcp').catch(function() { return null; }).then(function() {
+        // Use a POST to list tools
+        return fetch(API_BASE + '/mcp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
+        }).then(function(r) { return r.json(); }).catch(function() { return null; });
+      }).then(function(data) {
+        var body = document.getElementById('tools-body');
+        var countEl = document.getElementById('tools-count');
+        if (!data || !data.result || !data.result.tools) {
+          body.innerHTML = '<div class="empty-state">Could not load tools</div>';
+          return;
+        }
+        var tools = data.result.tools;
+        countEl.textContent = tools.length + ' tools';
+        body.innerHTML = tools.map(function(t) {
+          return '<div class="tool-chip"><div class="tool-name">' + escapeHtml(t.name) +
+            '</div><div class="tool-desc">' + escapeHtml(t.description || '').substring(0, 80) + '</div></div>';
+        }).join('');
+      });
+    }
+
+    function updateActivity() {
+      return fetchJSON('/api/mcp/activity').then(function(data) {
+        var body = document.getElementById('activity-body');
+        var countEl = document.getElementById('activity-count');
+        if (!data || !data.activity) {
+          body.innerHTML = '<div class="empty-state">No activity data</div>';
+          return;
+        }
+        countEl.textContent = data.activity.length + ' entries';
+        if (data.activity.length === 0) {
+          body.innerHTML = '<div class="empty-state">No recent tool calls</div>';
+          return;
+        }
+        var entries = data.activity.slice().reverse();
+        body.innerHTML = entries.map(function(a) {
+          var statusClass = a.success !== false ? 'log-success' : 'log-error';
+          var statusText = a.success !== false ? '&#10003;' : '&#10007;';
+          return '<div class="log-entry">' +
+            '<span class="log-time">' + formatTime(a.timestamp) + '</span>' +
+            '<span class="log-tool">' + escapeHtml(a.tool || '') + '</span> ' +
+            '<span class="' + statusClass + '">' + statusText + '</span>' +
+            (a.durationMs ? ' <span style="color:var(--text-dim)">' + a.durationMs + 'ms</span>' : '') +
+            '</div>';
+        }).join('');
+      });
+    }
+
+    function updateDeploy() {
+      return fetchJSON('/api/deploy/logs').then(function(data) {
+        var body = document.getElementById('deploy-body');
+        var countEl = document.getElementById('deploy-count');
+        if (!data || !data.logs) {
+          body.innerHTML = '<div class="empty-state">No deploy data</div>';
+          return;
+        }
+        countEl.textContent = data.logs.length + ' entries';
+        if (data.logs.length === 0) {
+          body.innerHTML = '<div class="empty-state">No deploy logs yet</div>';
+          return;
+        }
+        var lines = data.logs.slice().reverse();
+        body.innerHTML = lines.map(function(l) {
+          return '<div class="deploy-line">' + escapeHtml(l) + '</div>';
+        }).join('');
+      });
+    }
+
+    function refreshAll() {
+      return Promise.all([updateHealth(), updateGit(), updateActivity(), updateDeploy()]);
+    }
+
+    // Load tools once, then poll the rest
+    updateTools();
+    refreshAll();
+    setInterval(refreshAll, REFRESH_INTERVAL);
+  </script>
+</body>
+</html>

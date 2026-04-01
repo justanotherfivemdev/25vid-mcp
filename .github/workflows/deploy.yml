@@ -1,0 +1,63 @@
+name: Deploy MCP Server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy to production server
+        # Pinned ssh-action version for reproducibility and supply-chain safety.
+        # To update: review release notes at https://github.com/appleboy/ssh-action,
+        # test locally or in a non-production environment, then bump this tag.
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            set -e
+            DEPLOY_DIR="/opt/25vid/mcp"
+            LOG_DIR="/opt/mcp/logs"
+            mkdir -p "$LOG_DIR"
+            LOG_FILE="$LOG_DIR/deploy.log"
+
+            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy started (triggered by GitHub Actions)" >> "$LOG_FILE"
+
+            cd "$DEPLOY_DIR"
+
+            # Pull latest changes
+            git fetch origin main
+            git reset --hard origin/main
+            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Git pull completed" >> "$LOG_FILE"
+
+            # Rebuild and restart containers
+            docker compose build --no-cache
+            docker compose up -d
+            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Docker rebuild and restart completed" >> "$LOG_FILE"
+
+            # Wait for health check with retry loop
+            RETRIES=6
+            DELAY=5
+            for i in $(seq 1 $RETRIES); do
+              if curl -sf http://127.0.0.1:8787/health > /dev/null; then
+                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy SUCCESS — health check passed (attempt $i)" >> "$LOG_FILE"
+                break
+              fi
+              if [ "$i" -eq "$RETRIES" ]; then
+                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy WARNING — health check failed after $RETRIES attempts" >> "$LOG_FILE"
+                exit 1
+              fi
+              sleep $DELAY
+            done
+
+            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy completed successfully" >> "$LOG_FILE"

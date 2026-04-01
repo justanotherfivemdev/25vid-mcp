@@ -6,11 +6,15 @@
 const express = require("express");
 const os = require("os");
 const fs = require("fs");
+const path = require("path");
 const { execFile } = require("child_process");
 const config = require("../config");
 const { getRecentLogs, getRecentActivity } = require("../logger");
 
 const router = express.Router();
+
+// Serve dashboard UI static files
+router.use("/dashboard", express.static(path.join(__dirname, "../../public")));
 
 // Health check
 router.get("/health", (req, res) => {
@@ -86,6 +90,13 @@ router.get("/api/deploy/status", async (req, res) => {
       recentEntries: [],
     });
   }
+});
+
+// Debug analysis (AI error detection)
+router.get("/api/debug/analysis", (req, res) => {
+  const { analyzeErrors } = require("../debug/analyzer");
+  const report = analyzeErrors({ maxLines: 500 });
+  res.json(report);
 });
 
 // Git status (parsed)
