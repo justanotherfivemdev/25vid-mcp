@@ -112,6 +112,40 @@ function getRaw(path, headers = {}) {
   });
 }
 
+function options(path, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: "127.0.0.1", port: 8787, path, method: "OPTIONS", headers },
+      (res) => {
+        let chunks = "";
+        res.on("data", (c) => (chunks += c));
+        res.on("end", () => {
+          let parsed = null;
+          try { parsed = chunks ? JSON.parse(chunks) : null; } catch { /* empty or non-JSON response */ }
+          resolve({ status: res.statusCode, body: parsed, headers: res.headers });
+        });
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+function getRawNoFollow(urlPath, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: "127.0.0.1", port: 8787, path: urlPath, method: "GET", headers },
+      (res) => {
+        let chunks = "";
+        res.on("data", (c) => (chunks += c));
+        res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: chunks }));
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 let server;
 
 describe("MCP Server", () => {
@@ -134,6 +168,12 @@ describe("MCP Server", () => {
     it("GET /health returns ok", async () => {
       const res = await get("/health");
       assert.strictEqual(res.body.status, "ok");
+    });
+
+    it("GET / redirects to /dashboard/", async () => {
+      const res = await getRawNoFollow("/");
+      assert.ok(res.status >= 300 && res.status < 400, `Expected 3xx redirect, got ${res.status}`);
+      assert.strictEqual(res.headers.location, "/dashboard/");
     });
 
     it("GET /api/system returns uptime", async () => {
@@ -322,6 +362,27 @@ describe("MCP Server", () => {
       assert.ok(res.body.error);
       assert.strictEqual(res.body.error.code, -32602);
       assert.ok(res.body.error.message.includes("missing"));
+    });
+
+    it("OPTIONS /mcp returns 204 with CORS headers", async () => {
+      const res = await options("/mcp", { Origin: "http://localhost:3000" });
+      assert.strictEqual(res.status, 204);
+      assert.ok(res.headers["access-control-allow-methods"]);
+      assert.ok(res.headers["access-control-allow-methods"].includes("POST"));
+      assert.ok(res.headers["access-control-allow-headers"]);
+      assert.ok(res.headers["access-control-allow-headers"].includes("Mcp-Session-Id"));
+      assert.ok(res.headers["access-control-expose-headers"]);
+      assert.ok(res.headers["access-control-expose-headers"].includes("Mcp-Session-Id"));
+    });
+
+    it("CORS allows localhost origin", async () => {
+      const res = await options("/mcp", { Origin: "http://localhost:3000" });
+      assert.strictEqual(res.headers["access-control-allow-origin"], "http://localhost:3000");
+    });
+
+    it("CORS sets wildcard for non-browser requests (no Origin)", async () => {
+      const res = await post("/mcp", { jsonrpc: "2.0", id: 1, method: "ping" });
+      assert.strictEqual(res.headers["access-control-allow-origin"], "*");
     });
   });
 

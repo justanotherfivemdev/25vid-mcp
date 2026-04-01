@@ -228,6 +228,7 @@ The SSE connection exceeded Cloudflare's proxy timeout (100 seconds on free plan
 | `MCP_LOG_DIR` | `/opt/mcp/logs` | Log file directory |
 | `MCP_MAX_FILE_SIZE` | `5242880` | Max file size for read operations (bytes) |
 | `MCP_ALLOWED_IPS` | *(none)* | Comma-separated list of allowed IPs (optional) |
+| `MCP_ALLOWED_ORIGINS` | *(none)* | Comma-separated CORS origins to allow (e.g., `https://github.com,https://example.com`). Localhost is always permitted. Non-browser requests (no `Origin` header) are allowed by default. |
 | `MCP_ADMIN_TOKEN` | *(none)* | Admin MCP auth token (for admin server) |
 
 ## Architecture

@@ -22,13 +22,43 @@ const app = express();
 app.use(express.json());
 
 // CORS middleware — required for GitHub Copilot and browser-based MCP clients
+// Restricts Access-Control-Allow-Origin to localhost and MCP_ALLOWED_ORIGINS
+const allowedOriginsEnv = process.env.MCP_ALLOWED_ORIGINS || "";
+const allowedOrigins = allowedOriginsEnv
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin) {
+
+  const isLocalhostOrigin =
+    typeof origin === "string" &&
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+
+  const isAllowedEnvOrigin =
+    typeof origin === "string" && allowedOrigins.includes(origin);
+
+  if (origin && (isLocalhostOrigin || isAllowedEnvOrigin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-  } else {
+    // Vary on Origin to prevent cache mix-ups when echoing a specific origin
+    const existingVary = res.getHeader("Vary");
+    if (!existingVary) {
+      res.setHeader("Vary", "Origin");
+    } else {
+      const varyValues = Array.isArray(existingVary)
+        ? existingVary.flatMap((v) => String(v).split(",").map((s) => s.trim()))
+        : String(existingVary).split(",").map((s) => s.trim());
+      if (!varyValues.includes("Origin")) {
+        res.setHeader("Vary", varyValues.concat("Origin").join(", "));
+      }
+    }
+  } else if (!origin) {
+    // Non-browser clients (no Origin header): allow for server-to-server MCP
     res.setHeader("Access-Control-Allow-Origin", "*");
   }
+  // If origin is present but not allowed, no Access-Control-Allow-Origin is set (browser blocks it)
+
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
