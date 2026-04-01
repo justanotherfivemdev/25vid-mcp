@@ -27,8 +27,19 @@ setInterval(() => {
   const now = Date.now();
   for (const [id, session] of sessions) {
     if (now - session.createdAt > maxAge) {
+      // Close any open SSE connections before cleaning up the session
+      const clients = sseClients.get(id);
+      if (clients) {
+        for (const client of clients) {
+          try {
+            client.end();
+          } catch (e) {
+            // Ignore errors when attempting to close a client
+          }
+        }
+        sseClients.delete(id);
+      }
       sessions.delete(id);
-      sseClients.delete(id);
     }
   }
 }, 5 * 60 * 1000).unref();
@@ -51,6 +62,13 @@ async function mcpHandler(req, res) {
   try {
     // ---- MCP Lifecycle: initialize ----
     if (method === "initialize") {
+      const clientVersion = params && params.protocolVersion;
+      if (!clientVersion || clientVersion !== PROTOCOL_VERSION) {
+        return res.json(
+          jsonRpcError(id, -32602, `Unsupported protocol version: ${clientVersion || "missing"}. Server supports ${PROTOCOL_VERSION}`)
+        );
+      }
+
       const sessionId = crypto.randomUUID();
       sessions.set(sessionId, { initialized: false, createdAt: Date.now() });
 
@@ -180,7 +198,9 @@ function mcpSseHandler(req, res) {
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   });
-  res.flushHeaders();
+  if (typeof res.flushHeaders === "function") {
+    res.flushHeaders();
+  }
 
   // Register this SSE client
   if (!sseClients.has(sessionId)) {

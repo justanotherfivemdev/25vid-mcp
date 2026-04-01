@@ -33,7 +33,12 @@ loadTools();
 
 // MCP JSON-RPC endpoint (Streamable HTTP transport)
 app.post("/mcp", mcpHandler);
-app.get("/mcp", mcpSseHandler);
+app.get("/mcp", (req, res, next) => {
+  // Disable socket timeouts for SSE to allow long-lived connections
+  if (typeof req.setTimeout === "function") req.setTimeout(0);
+  if (typeof res.setTimeout === "function") res.setTimeout(0);
+  return mcpSseHandler(req, res, next);
+});
 app.delete("/mcp", mcpDeleteHandler);
 
 // Dashboard and API routes
