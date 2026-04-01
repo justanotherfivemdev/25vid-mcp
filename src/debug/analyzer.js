@@ -46,8 +46,8 @@ function readLogLines(filePath, maxLines = 500) {
       return [];
     }
 
-    // Heuristic: assume an upper-bound average line length to cap bytes read.
-    const APPROX_BYTES_PER_LINE = 2000;
+    // Heuristic: cap bytes read based on estimated line length.
+    const APPROX_BYTES_PER_LINE = 500;
     const bytesToRead = Math.min(
       fileSize,
       Math.max(1, maxLines) * APPROX_BYTES_PER_LINE

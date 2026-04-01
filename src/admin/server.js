@@ -24,9 +24,7 @@ function adminAuthMiddleware(req, res, next) {
   // Skip auth for health check
   if (req.path === "/health") return next();
 
-  const token =
-    req.headers["x-admin-token"] ||
-    (process.env.NODE_ENV !== "production" ? req.query.token : undefined);
+  const token = req.headers["x-admin-token"];
   const adminToken = process.env.MCP_ADMIN_TOKEN;
 
   if (!adminToken) {

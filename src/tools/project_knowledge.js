@@ -105,6 +105,8 @@ module.exports = {
         };
 
         if (existing >= 0) {
+          entry.addedAt = kb.entries[existing].addedAt;
+          entry.updatedAt = new Date().toISOString();
           kb.entries[existing] = entry;
         } else {
           kb.entries.push(entry);
