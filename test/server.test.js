@@ -47,6 +47,38 @@ function get(path) {
   });
 }
 
+function postRaw(path, body, extraHeaders = {}) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const req = http.request(
+      { hostname: "127.0.0.1", port: 8787, path, method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data), ...extraHeaders } },
+      (res) => {
+        let chunks = "";
+        res.on("data", (c) => (chunks += c));
+        res.on("end", () => resolve({ status: res.statusCode, body: chunks ? JSON.parse(chunks) : null, headers: res.headers }));
+      }
+    );
+    req.on("error", reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+function del(path, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: "127.0.0.1", port: 8787, path, method: "DELETE", headers },
+      (res) => {
+        let chunks = "";
+        res.on("data", (c) => (chunks += c));
+        res.on("end", () => resolve({ status: res.statusCode, body: chunks ? JSON.parse(chunks) : null, headers: res.headers }));
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 let server;
 
 describe("MCP Server", () => {
@@ -157,6 +189,60 @@ describe("MCP Server", () => {
     it("includes request ID header", async () => {
       const res = await post("/mcp", { jsonrpc: "2.0", id: 1, method: "tools/list" });
       assert.ok(res.headers["x-request-id"]);
+    });
+
+    // ---- Streamable HTTP transport lifecycle ----
+
+    it("initialize returns server capabilities and session ID", async () => {
+      const res = await post("/mcp", {
+        jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+      });
+      assert.strictEqual(res.body.jsonrpc, "2.0");
+      assert.strictEqual(res.body.id, 1);
+      assert.ok(res.body.result);
+      assert.strictEqual(res.body.result.protocolVersion, "2025-03-26");
+      assert.ok(res.body.result.capabilities);
+      assert.ok(res.body.result.capabilities.tools);
+      assert.ok(res.body.result.serverInfo);
+      assert.strictEqual(res.body.result.serverInfo.name, "25vid-mcp");
+      assert.ok(res.headers["mcp-session-id"]);
+    });
+
+    it("notifications/initialized returns 204", async () => {
+      // First initialize to get session ID
+      const initRes = await post("/mcp", {
+        jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+      });
+      const sessionId = initRes.headers["mcp-session-id"];
+
+      const res = await postRaw("/mcp", { jsonrpc: "2.0", method: "notifications/initialized" }, { "mcp-session-id": sessionId });
+      assert.strictEqual(res.status, 204);
+    });
+
+    it("ping returns empty result", async () => {
+      const res = await post("/mcp", { jsonrpc: "2.0", id: 1, method: "ping" });
+      assert.strictEqual(res.body.jsonrpc, "2.0");
+      assert.strictEqual(res.body.id, 1);
+      assert.ok(res.body.result);
+    });
+
+    it("DELETE /mcp terminates session", async () => {
+      // Initialize to get session
+      const initRes = await post("/mcp", {
+        jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+      });
+      const sessionId = initRes.headers["mcp-session-id"];
+
+      const res = await del("/mcp", { "mcp-session-id": sessionId });
+      assert.strictEqual(res.status, 204);
+    });
+
+    it("DELETE /mcp rejects missing session", async () => {
+      const res = await del("/mcp", {});
+      assert.strictEqual(res.status, 400);
     });
   });
 

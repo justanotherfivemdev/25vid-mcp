@@ -7,7 +7,7 @@
 const express = require("express");
 const config = require("./src/config");
 const { loadTools } = require("./src/tools/index");
-const { mcpHandler } = require("./src/mcp/handler");
+const { mcpHandler, mcpSseHandler, mcpDeleteHandler } = require("./src/mcp/handler");
 const dashboardRoutes = require("./src/routes/dashboard");
 const {
   requestIdMiddleware,
@@ -31,8 +31,10 @@ app.use(ipRestrictionMiddleware);
 // Register all MCP tools
 loadTools();
 
-// MCP JSON-RPC endpoint
+// MCP JSON-RPC endpoint (Streamable HTTP transport)
 app.post("/mcp", mcpHandler);
+app.get("/mcp", mcpSseHandler);
+app.delete("/mcp", mcpDeleteHandler);
 
 // Dashboard and API routes
 app.use(dashboardRoutes);
