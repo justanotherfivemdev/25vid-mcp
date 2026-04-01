@@ -17,6 +17,7 @@ const tools = [
   require("./get_git_diff"),
   require("./get_recent_commits"),
   require("./get_file_metadata"),
+  require("./analyze_errors"),
 ];
 
 /**

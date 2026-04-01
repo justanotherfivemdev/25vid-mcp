@@ -11,6 +11,39 @@ services:
     environment:
       - NODE_ENV=production
       - MCP_WORKSPACE=/workspace
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8787/health',(r)=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))})"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  mcp-admin:
+    build: .
+    container_name: mcp-admin-server
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8788:8788"
+    volumes:
+      - /opt/25vid:/workspace
+      - mcp-logs:/opt/mcp/logs
+    environment:
+      - NODE_ENV=production
+      - MCP_WORKSPACE=/workspace
+      - MCP_ADMIN_TOKEN=${MCP_ADMIN_TOKEN}
+      - MCP_ADMIN_PORT=8788
+    command: ["node", "-e", "require('./src/admin/server').startAdmin()"]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8788/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     logging:
       driver: json-file
       options:

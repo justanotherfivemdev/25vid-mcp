@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP Dashboard — 25thVid</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-dim: #8b949e;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+      --error: #f85149;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-ok { background: rgba(63,185,80,0.15); color: var(--success); }
+    .status-err { background: rgba(248,81,73,0.15); color: var(--error); }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .card-header .badge {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .card-body {
+      padding: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .card-body::-webkit-scrollbar { width: 6px; }
+    .card-body::-webkit-scrollbar-track { background: var(--surface); }
+    .card-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .metric {
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      margin-top: 4px;
+      color: var(--accent);
+    }
+    .log-entry {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      word-break: break-all;
+    }
+    .log-entry:last-child { border-bottom: none; }
+    .log-time {
+      color: var(--text-dim);
+      margin-right: 8px;
+    }
+    .log-tool {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .log-success { color: var(--success); }
+    .log-error { color: var(--error); }
+    .git-file {
+      font-family: monospace;
+      font-size: 13px;
+      padding: 4px 0;
+      display: flex;
+      gap: 8px;
+    }
+    .git-status-code {
+      color: var(--warning);
+      font-weight: 700;
+      min-width: 20px;
+    }
+    .deploy-line {
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.8;
+      color: var(--text-dim);
+    }
+    .empty-state {
+      color: var(--text-dim);
+      font-size: 13px;
+      text-align: center;
+      padding: 24px;
+    }
+    .refresh-info {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>&#x1F4E1; MCP Dashboard</h1>
+    <div>
+      <span id="health-badge" class="status-badge status-ok">Checking...</span>
+      <span class="refresh-info" style="margin-left:12px">Auto-refresh: 10s</span>
+    </div>
+  </header>
+  <div class="grid">
+    <!-- System Health -->
+    <div class="card">
+      <div class="card-header">
+        <h2>&#x1F4CA; System Health</h2>
+        <span class="badge" id="health-time"></span>
+      </div>
+      <div class="card-body">
+        <div class="metric-grid" id="system-metrics">
+          <div class="metric"><div class="metric-label">Status</div><div class="metric-value" id="m-status">—</div></div>
+          <div class="metric"><div class="metric-label">Uptime</div><div class="metric-value" id="m-uptime">—</div></div>
+          <div class="metric"><div class="metric-label">Memory (Heap)</div><div class="metric-value" id="m-memory">—</div></div>
+          <div class="metric"><div class="metric-label">CPU Load (1m)</div><div class="metric-value" id="m-load">—</div></div>
+          <div class="metric"><div class="metric-label">Node.js</div><div class="metric-value" id="m-node">—</div></div>
+          <div class="metric"><div class="metric-label">Free RAM</div><div class="metric-value" id="m-freemem">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Git Status -->
+    <div class="card">
+      <div class="card-header">
+        <h2>&#x1F500; Git Status</h2>
+        <span class="badge" id="git-branch"></span>
+      </div>
+      <div class="card-body" id="git-body">
+        <div class="empty-state">Loading...</div>
+      </div>
+    </div>
+
+    <!-- MCP Activity -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <h2>&#x26A1; MCP Activity</h2>
+        <span class="badge" id="activity-count"></span>
+      </div>
+      <div class="card-body" id="activity-body">
+        <div class="empty-state">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Deploy Logs -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <h2>&#x1F680; Deploy Logs</h2>
+        <span class="badge" id="deploy-count"></span>
+      </div>
+      <div class="card-body" id="deploy-body">
+        <div class="empty-state">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '';
+    const REFRESH_INTERVAL = 10000;
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function formatUptime(seconds) {
+      const d = Math.floor(seconds / 86400);
+      const h = Math.floor((seconds % 86400) / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      if (d > 0) return d + 'd ' + h + 'h';
+      if (h > 0) return h + 'h ' + m + 'm';
+      return m + 'm ' + Math.floor(seconds % 60) + 's';
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleTimeString();
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    async function fetchJSON(url) {
+      try {
+        const res = await fetch(API_BASE + url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+      } catch (e) {
+        console.error('Fetch error:', url, e);
+        return null;
+      }
+    }
+
+    async function updateHealth() {
+      const data = await fetchJSON('/api/system/health');
+      const badge = document.getElementById('health-badge');
+      if (!data) {
+        badge.className = 'status-badge status-err';
+        badge.textContent = 'Offline';
+        return;
+      }
+      badge.className = 'status-badge status-ok';
+      badge.textContent = 'Online';
+      document.getElementById('health-time').textContent = formatTime(data.timestamp);
+      document.getElementById('m-status').textContent = data.status === 'ok' ? '✓ OK' : '✗ Error';
+      document.getElementById('m-uptime').textContent = formatUptime(data.uptime);
+      document.getElementById('m-memory').textContent = formatBytes(data.memory.heapUsed);
+      document.getElementById('m-load').textContent = data.os.loadAvg[0].toFixed(2);
+      document.getElementById('m-node').textContent = data.nodeVersion;
+      document.getElementById('m-freemem').textContent = formatBytes(data.os.freeMem);
+    }
+
+    async function updateGit() {
+      const data = await fetchJSON('/api/git/status');
+      const body = document.getElementById('git-body');
+      const branchEl = document.getElementById('git-branch');
+      if (!data || data.error) {
+        body.innerHTML = '<div class="empty-state">Git not available</div>';
+        return;
+      }
+      branchEl.textContent = 'Branch: ' + escapeHtml(data.branch);
+      if (data.clean) {
+        body.innerHTML = '<div class="empty-state" style="color:var(--success)">✓ Working tree clean</div>';
+      } else {
+        body.innerHTML = data.changes.map(function(c) {
+          return '<div class="git-file"><span class="git-status-code">' +
+            escapeHtml(c.status) + '</span><span>' + escapeHtml(c.file) + '</span></div>';
+        }).join('');
+      }
+    }
+
+    async function updateActivity() {
+      const data = await fetchJSON('/api/mcp/activity');
+      const body = document.getElementById('activity-body');
+      const countEl = document.getElementById('activity-count');
+      if (!data || !data.activity) {
+        body.innerHTML = '<div class="empty-state">No activity data</div>';
+        return;
+      }
+      countEl.textContent = data.activity.length + ' entries';
+      if (data.activity.length === 0) {
+        body.innerHTML = '<div class="empty-state">No recent tool calls</div>';
+        return;
+      }
+      const entries = data.activity.slice().reverse();
+      body.innerHTML = entries.map(function(a) {
+        var statusClass = a.success !== false ? 'log-success' : 'log-error';
+        var statusText = a.success !== false ? '✓' : '✗';
+        return '<div class="log-entry">' +
+          '<span class="log-time">' + formatTime(a.timestamp) + '</span>' +
+          '<span class="log-tool">' + escapeHtml(a.tool || '') + '</span> ' +
+          '<span class="' + statusClass + '">' + statusText + '</span>' +
+          (a.durationMs ? ' <span style="color:var(--text-dim)">' + a.durationMs + 'ms</span>' : '') +
+          '</div>';
+      }).join('');
+    }
+
+    async function updateDeploy() {
+      const data = await fetchJSON('/api/deploy/logs');
+      const body = document.getElementById('deploy-body');
+      const countEl = document.getElementById('deploy-count');
+      if (!data || !data.logs) {
+        body.innerHTML = '<div class="empty-state">No deploy data</div>';
+        return;
+      }
+      countEl.textContent = data.logs.length + ' entries';
+      if (data.logs.length === 0) {
+        body.innerHTML = '<div class="empty-state">No deploy logs yet</div>';
+        return;
+      }
+      var lines = data.logs.slice().reverse();
+      body.innerHTML = lines.map(function(l) {
+        return '<div class="deploy-line">' + escapeHtml(l) + '</div>';
+      }).join('');
+    }
+
+    async function refreshAll() {
+      await Promise.all([updateHealth(), updateGit(), updateActivity(), updateDeploy()]);
+    }
+
+    refreshAll();
+    setInterval(refreshAll, REFRESH_INTERVAL);
+  </script>
+</body>
+</html>
