@@ -5,15 +5,44 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Prevent overlapping deployments — only one deploy at a time
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     environment: production
 
     steps:
+      - name: Validate deploy secrets
+        run: |
+          missing=""
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then missing="$missing DEPLOY_HOST"; fi
+          if [ -z "${{ secrets.DEPLOY_USER }}" ]; then missing="$missing DEPLOY_USER"; fi
+          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then missing="$missing DEPLOY_SSH_KEY"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required deployment secrets:$missing"
+            echo "Configure these in Settings > Secrets and variables > Actions (environment: production)"
+            exit 1
+          fi
+
       - name: Deploy to production server
         # Pinned ssh-action version for reproducibility and supply-chain safety.
         # To update: review release notes at https://github.com/appleboy/ssh-action,
@@ -24,40 +53,65 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
+          command_timeout: 10m
           script: |
             set -e
             DEPLOY_DIR="/opt/25vid/mcp"
             LOG_DIR="/opt/mcp/logs"
             mkdir -p "$LOG_DIR"
             LOG_FILE="$LOG_DIR/deploy.log"
+            COMMIT="${{ github.sha }}"
 
-            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy started (triggered by GitHub Actions)" >> "$LOG_FILE"
+            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy started (commit: $COMMIT, triggered by GitHub Actions)" >> "$LOG_FILE"
 
             cd "$DEPLOY_DIR"
 
             # Pull latest changes
             git fetch origin main
             git reset --hard origin/main
-            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Git pull completed" >> "$LOG_FILE"
+            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Git pull completed ($(git rev-parse --short HEAD))" >> "$LOG_FILE"
 
-            # Rebuild and restart containers
+            # Rebuild and force-recreate containers to ensure latest code is running
             docker compose build --no-cache
-            docker compose up -d
+            docker compose up -d --force-recreate --remove-orphans
             echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Docker rebuild and restart completed" >> "$LOG_FILE"
 
-            # Wait for health check with retry loop
+            # Health check: MCP server (port 8787)
             RETRIES=6
             DELAY=5
+            MCP_OK=false
             for i in $(seq 1 $RETRIES); do
-              if curl -sf http://127.0.0.1:8787/health > /dev/null; then
-                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy SUCCESS — health check passed (attempt $i)" >> "$LOG_FILE"
+              if curl -sf http://127.0.0.1:8787/health > /dev/null 2>&1; then
+                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] MCP server health check passed (attempt $i)" >> "$LOG_FILE"
+                MCP_OK=true
                 break
-              fi
-              if [ "$i" -eq "$RETRIES" ]; then
-                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy WARNING — health check failed after $RETRIES attempts" >> "$LOG_FILE"
-                exit 1
               fi
               sleep $DELAY
             done
 
-            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy completed successfully" >> "$LOG_FILE"
+            # Health check: Admin server (port 8788)
+            ADMIN_OK=false
+            for i in $(seq 1 $RETRIES); do
+              if curl -sf http://127.0.0.1:8788/health > /dev/null 2>&1; then
+                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Admin server health check passed (attempt $i)" >> "$LOG_FILE"
+                ADMIN_OK=true
+                break
+              fi
+              sleep $DELAY
+            done
+
+            if [ "$MCP_OK" = false ] || [ "$ADMIN_OK" = false ]; then
+              echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy FAILED — health checks: mcp=$MCP_OK admin=$ADMIN_OK" >> "$LOG_FILE"
+              echo "--- Container status ---" | tee -a "$LOG_FILE"
+              docker compose ps 2>&1 | tee -a "$LOG_FILE" || true
+              echo "--- MCP server logs (last 30 lines) ---" | tee -a "$LOG_FILE"
+              docker compose logs --tail=30 mcp 2>&1 | tee -a "$LOG_FILE" || true
+              echo "--- Admin server logs (last 30 lines) ---" | tee -a "$LOG_FILE"
+              docker compose logs --tail=30 mcp-admin 2>&1 | tee -a "$LOG_FILE" || true
+              exit 1
+            fi
+
+            # Clean up old Docker images to prevent disk bloat
+            docker image prune -f > /dev/null 2>&1 || true
+
+            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy SUCCESS — both services healthy" >> "$LOG_FILE"
