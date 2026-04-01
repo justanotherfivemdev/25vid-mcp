@@ -93,8 +93,6 @@ jobs:
               # Check current statuses each iteration (no latching) to catch regressions
               if [ "$MCP_STATUS" = "healthy" ] && [ "$ADMIN_STATUS" = "healthy" ]; then
                 echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Both containers healthy after ${ELAPSED}s" >> "$LOG_FILE"
-                MCP_HEALTHY=true
-                ADMIN_HEALTHY=true
                 break
               fi
 
