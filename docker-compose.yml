@@ -1,0 +1,9 @@
+services:
+  mcp:
+    build: .
+    container_name: mcp-server
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - /opt/25vid:/workspace
