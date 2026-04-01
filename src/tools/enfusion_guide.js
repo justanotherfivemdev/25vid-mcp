@@ -419,17 +419,36 @@ function getToolDetail(name) {
   };
 
   const tool = tools[name];
-  if (!tool) {
-    return JSON.stringify(
-      {
-        error: "No detailed info for tool: " + name,
-        hint: "Use topic: 'tools' to see the full tool listing",
-        available_details: Object.keys(tools),
-      },
-      null,
-      2
-    );
+  if (tool) {
+    return JSON.stringify(tool, null, 2);
   }
 
-  return JSON.stringify(tool, null, 2);
+  // Fallback: generate detail from the full tool listing for any tool not manually detailed
+  const listing = getToolListing();
+  const allCategories = { research: "Research", generation: "Code Generation", project: "Project Management", game_assets: "Game Assets", workbench: "Workbench Control" };
+  for (const [catKey, catLabel] of Object.entries(allCategories)) {
+    const entries = listing[catKey] || [];
+    const match = entries.find((t) => t.name === name);
+    if (match) {
+      return JSON.stringify(
+        {
+          name: match.name,
+          description: match.description,
+          category: catLabel,
+          hint: "Use the Enfusion MCP directly for full parameter details and examples.",
+        },
+        null,
+        2
+      );
+    }
+  }
+
+  return JSON.stringify(
+    {
+      error: "Unknown Enfusion MCP tool: " + name,
+      hint: "Use topic: 'tools' to see the full tool listing",
+    },
+    null,
+    2
+  );
 }

@@ -375,9 +375,13 @@
       border-radius: var(--radius-sm);
       text-decoration: none;
       color: var(--text);
+      transition: border-color 0.2s;
+    }
+    a.enfusion-link {
+      cursor: pointer;
       transition: border-color 0.2s, transform 0.15s;
     }
-    .enfusion-link:hover {
+    a.enfusion-link:hover {
       border-color: var(--purple);
       transform: translateY(-1px);
     }
@@ -502,48 +506,48 @@
       </div>
       <div class="card-body">
         <div class="enfusion-links">
-          <div class="enfusion-link">
-            <div class="ef-icon research">&#x1F50D;</div>
-            <div>
-              <div class="ef-label">API Research</div>
-              <div class="ef-desc">8,693 classes indexed</div>
-            </div>
-          </div>
-          <div class="enfusion-link">
-            <div class="ef-icon generate">&#x1F528;</div>
-            <div>
-              <div class="ef-label">Code Generation</div>
-              <div class="ef-desc">Scripts, prefabs, layouts</div>
-            </div>
-          </div>
-          <div class="enfusion-link">
-            <div class="ef-icon workbench">&#x1F5A5;</div>
-            <div>
-              <div class="ef-label">Workbench Control</div>
-              <div class="ef-desc">Live TCP editor bridge</div>
-            </div>
-          </div>
-          <div class="enfusion-link">
-            <div class="ef-icon assets">&#x1F4E6;</div>
-            <div>
-              <div class="ef-label">Game Assets</div>
-              <div class="ef-desc">.pak archive access</div>
-            </div>
-          </div>
+          <span class="enfusion-link" role="img" aria-label="API Research">
+            <span class="ef-icon research">&#x1F50D;</span>
+            <span>
+              <span class="ef-label">API Research</span>
+              <span class="ef-desc">8,693 classes indexed</span>
+            </span>
+          </span>
+          <span class="enfusion-link" role="img" aria-label="Code Generation">
+            <span class="ef-icon generate">&#x1F528;</span>
+            <span>
+              <span class="ef-label">Code Generation</span>
+              <span class="ef-desc">Scripts, prefabs, layouts</span>
+            </span>
+          </span>
+          <span class="enfusion-link" role="img" aria-label="Workbench Control">
+            <span class="ef-icon workbench">&#x1F5A5;</span>
+            <span>
+              <span class="ef-label">Workbench Control</span>
+              <span class="ef-desc">Live TCP editor bridge</span>
+            </span>
+          </span>
+          <span class="enfusion-link" role="img" aria-label="Game Assets">
+            <span class="ef-icon assets">&#x1F4E6;</span>
+            <span>
+              <span class="ef-label">Game Assets</span>
+              <span class="ef-desc">.pak archive access</span>
+            </span>
+          </span>
           <a class="enfusion-link" href="https://github.com/steffenbk/enfusion-mcp-BK" target="_blank" rel="noopener">
-            <div class="ef-icon research">&#x1F517;</div>
-            <div>
-              <div class="ef-label">Enfusion MCP Repo</div>
-              <div class="ef-desc">v0.10.0 &mdash; 49 tools</div>
-            </div>
+            <span class="ef-icon research">&#x1F517;</span>
+            <span>
+              <span class="ef-label">Enfusion MCP Repo</span>
+              <span class="ef-desc">v0.10.0 &mdash; 49 tools</span>
+            </span>
           </a>
-          <div class="enfusion-link">
-            <div class="ef-icon generate">&#x1F4D6;</div>
-            <div>
-              <div class="ef-label">250+ Wiki Guides</div>
-              <div class="ef-desc">Tutorials &amp; documentation</div>
-            </div>
-          </div>
+          <span class="enfusion-link" role="img" aria-label="Wiki Guides">
+            <span class="ef-icon generate">&#x1F4D6;</span>
+            <span>
+              <span class="ef-label">250+ Wiki Guides</span>
+              <span class="ef-desc">Tutorials &amp; documentation</span>
+            </span>
+          </span>
         </div>
       </div>
     </div>
@@ -650,6 +654,8 @@
           badge.textContent = 'OFFLINE';
           heroStatus.textContent = '✗';
           heroStatus.style.color = 'var(--error)';
+          heroUptime.textContent = '—';
+          heroUptime.style.color = 'var(--text-dim)';
           return;
         }
         badge.className = 'status-badge status-ok';
@@ -706,7 +712,7 @@
         heroTools.textContent = tools.length;
         body.innerHTML = tools.map(function(t) {
           return '<div class="tool-chip"><div class="tool-name">' + escapeHtml(t.name) +
-            '</div><div class="tool-desc">' + escapeHtml(t.description || '').substring(0, 90) + '</div></div>';
+            '</div><div class="tool-desc">' + escapeHtml((t.description || '').substring(0, 90)) + '</div></div>';
         }).join('');
       });
     }
