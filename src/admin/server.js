@@ -21,8 +21,8 @@ const ACTION_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 // ========================
 
 function adminAuthMiddleware(req, res, next) {
-  // Skip auth for health check
-  if (req.path === "/health") return next();
+  // Skip auth for health and readiness probes
+  if (req.path === "/health" || req.path === "/ready") return next();
 
   const token = req.headers["x-admin-token"];
   const adminToken = process.env.MCP_ADMIN_TOKEN;
@@ -306,8 +306,14 @@ async function adminMcpHandler(req, res) {
 // Routes
 // ========================
 
+// Health check — used by Docker healthcheck and deploy scripts
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", server: "admin-mcp" });
+  res.json({ status: "ok", service: "mcp-admin", timestamp: new Date().toISOString() });
+});
+
+// Readiness check — for future liveness vs readiness separation
+app.get("/ready", (req, res) => {
+  res.json({ status: "ok", service: "mcp-admin", timestamp: new Date().toISOString() });
 });
 
 app.post("/mcp", adminMcpHandler);

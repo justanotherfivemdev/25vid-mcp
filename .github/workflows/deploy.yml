@@ -76,38 +76,59 @@ jobs:
             docker compose up -d --force-recreate --remove-orphans
             echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Docker rebuild and restart completed" >> "$LOG_FILE"
 
-            # Health check: MCP server (port 8787)
-            RETRIES=6
-            DELAY=5
-            MCP_OK=false
-            for i in $(seq 1 $RETRIES); do
-              if curl -sf http://127.0.0.1:8787/health > /dev/null 2>&1; then
-                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] MCP server health check passed (attempt $i)" >> "$LOG_FILE"
-                MCP_OK=true
+            # Docker-native health validation
+            # Wait for both containers to report "healthy" via Docker healthchecks
+            MAX_WAIT=90
+            POLL_INTERVAL=5
+            ELAPSED=0
+            MCP_HEALTHY=false
+            ADMIN_HEALTHY=false
+
+            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Waiting for containers to become healthy (timeout: ${MAX_WAIT}s)..." >> "$LOG_FILE"
+
+            while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
+              MCP_STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcp-server 2>/dev/null || echo "unknown")
+              ADMIN_STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcp-admin-server 2>/dev/null || echo "unknown")
+
+              # Check current statuses each iteration (no latching) to catch regressions
+              if [ "$MCP_STATUS" = "healthy" ] && [ "$ADMIN_STATUS" = "healthy" ]; then
+                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Both containers healthy after ${ELAPSED}s" >> "$LOG_FILE"
                 break
               fi
-              sleep $DELAY
-            done
 
-            # Health check: Admin server (port 8788)
-            ADMIN_OK=false
-            for i in $(seq 1 $RETRIES); do
-              if curl -sf http://127.0.0.1:8788/health > /dev/null 2>&1; then
-                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Admin server health check passed (attempt $i)" >> "$LOG_FILE"
-                ADMIN_OK=true
+              # Fail fast if either container is definitively unhealthy
+              if [ "$MCP_STATUS" = "unhealthy" ] || [ "$ADMIN_STATUS" = "unhealthy" ]; then
+                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Container reported unhealthy: mcp-server=$MCP_STATUS mcp-admin-server=$ADMIN_STATUS" >> "$LOG_FILE"
                 break
               fi
-              sleep $DELAY
+
+              sleep "$POLL_INTERVAL"
+              ELAPSED=$((ELAPSED + POLL_INTERVAL))
             done
 
-            if [ "$MCP_OK" = false ] || [ "$ADMIN_OK" = false ]; then
-              echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy FAILED — health checks: mcp=$MCP_OK admin=$ADMIN_OK" >> "$LOG_FILE"
+            # Evaluate final health status (re-check current state, not latched values)
+            MCP_STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcp-server 2>/dev/null || echo "unknown")
+            ADMIN_STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcp-admin-server 2>/dev/null || echo "unknown")
+            [ "$MCP_STATUS" = "healthy" ] && MCP_HEALTHY=true
+            [ "$ADMIN_STATUS" = "healthy" ] && ADMIN_HEALTHY=true
+
+            if [ "$MCP_HEALTHY" = false ] || [ "$ADMIN_HEALTHY" = false ]; then
+              echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy FAILED — health status: mcp-server=$MCP_STATUS mcp-admin-server=$ADMIN_STATUS (after ${ELAPSED}s)" >> "$LOG_FILE"
+
+              echo "=== DEPLOYMENT HEALTH CHECK FAILURE ===" | tee -a "$LOG_FILE"
+              if [ "$MCP_HEALTHY" = false ]; then
+                echo "FAILED: mcp-server (status: $MCP_STATUS)" | tee -a "$LOG_FILE"
+              fi
+              if [ "$ADMIN_HEALTHY" = false ]; then
+                echo "FAILED: mcp-admin-server (status: $ADMIN_STATUS)" | tee -a "$LOG_FILE"
+              fi
+
               echo "--- Container status ---" | tee -a "$LOG_FILE"
               docker compose ps 2>&1 | tee -a "$LOG_FILE" || true
-              echo "--- MCP server logs (last 30 lines) ---" | tee -a "$LOG_FILE"
-              docker compose logs --tail=30 mcp 2>&1 | tee -a "$LOG_FILE" || true
-              echo "--- Admin server logs (last 30 lines) ---" | tee -a "$LOG_FILE"
-              docker compose logs --tail=30 mcp-admin 2>&1 | tee -a "$LOG_FILE" || true
+              echo "--- MCP server logs (last 50 lines) ---" | tee -a "$LOG_FILE"
+              docker compose logs --tail=50 mcp 2>&1 | tee -a "$LOG_FILE" || true
+              echo "--- Admin server logs (last 50 lines) ---" | tee -a "$LOG_FILE"
+              docker compose logs --tail=50 mcp-admin 2>&1 | tee -a "$LOG_FILE" || true
               exit 1
             fi
 
