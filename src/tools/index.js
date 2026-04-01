@@ -20,7 +20,7 @@ const tools = [
   require("./analyze_errors"),
   require("./generate_html_scaffold"),
   require("./generate_css_theme"),
-  require("./fivem_resource_scaffold"),
+  require("./enfusion_guide"),
   require("./project_knowledge"),
 ];
 
