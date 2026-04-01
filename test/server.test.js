@@ -55,7 +55,11 @@ function postRaw(path, body, extraHeaders = {}) {
       (res) => {
         let chunks = "";
         res.on("data", (c) => (chunks += c));
-        res.on("end", () => resolve({ status: res.statusCode, body: chunks ? JSON.parse(chunks) : null, headers: res.headers }));
+        res.on("end", () => {
+          let parsed = null;
+          try { parsed = chunks ? JSON.parse(chunks) : null; } catch { /* empty or non-JSON response */ }
+          resolve({ status: res.statusCode, body: parsed, headers: res.headers });
+        });
       }
     );
     req.on("error", reject);
@@ -71,7 +75,11 @@ function del(path, headers = {}) {
       (res) => {
         let chunks = "";
         res.on("data", (c) => (chunks += c));
-        res.on("end", () => resolve({ status: res.statusCode, body: chunks ? JSON.parse(chunks) : null, headers: res.headers }));
+        res.on("end", () => {
+          let parsed = null;
+          try { parsed = chunks ? JSON.parse(chunks) : null; } catch { /* empty or non-JSON response */ }
+          resolve({ status: res.statusCode, body: parsed, headers: res.headers });
+        });
       }
     );
     req.on("error", reject);
