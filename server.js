@@ -21,6 +21,32 @@ const {
 const app = express();
 app.use(express.json());
 
+// CORS middleware — required for GitHub Copilot and browser-based MCP clients
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Accept, Mcp-Session-Id, X-Request-ID"
+  );
+  res.setHeader(
+    "Access-Control-Expose-Headers",
+    "Mcp-Session-Id, X-Request-ID"
+  );
+  res.setHeader("Access-Control-Max-Age", "86400");
+  next();
+});
+
+// Handle CORS preflight requests for the MCP endpoint
+app.options("/mcp", (req, res) => {
+  res.status(204).end();
+});
+
 // Apply middleware stack
 app.use(requestIdMiddleware);
 app.use(httpLoggerMiddleware);
