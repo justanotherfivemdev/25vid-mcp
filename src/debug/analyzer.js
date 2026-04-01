@@ -7,6 +7,9 @@
 const fs = require("fs");
 const config = require("../config");
 
+// Constants
+const MAX_OUTPUT_ERRORS = 100;
+
 // Error patterns to detect in logs
 const ERROR_PATTERNS = [
   { pattern: /Error:/i, category: "runtime_error", severity: "high" },
@@ -117,7 +120,7 @@ function analyzeErrors(options = {}) {
       bySeverity,
       categories: Object.keys(byCategory),
     },
-    errors: errors.slice(-100), // Limit output size
+    errors: errors.slice(-MAX_OUTPUT_ERRORS),
     suggestions: generateSuggestions(byCategory),
   };
 }

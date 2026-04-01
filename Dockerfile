@@ -2,9 +2,6 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Install git for git-based tools
-RUN apk add --no-cache git grep curl
-
 # Copy dependency files first for better layer caching
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
@@ -13,7 +10,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache git grep curl
+RUN apk add --no-cache git grep
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./

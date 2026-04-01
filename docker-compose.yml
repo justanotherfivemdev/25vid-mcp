@@ -39,7 +39,7 @@ services:
       - MCP_ADMIN_PORT=8788
     command: ["node", "-e", "require('./src/admin/server').startAdmin()"]
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8788/health"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8788/health',(r)=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))})"]
       interval: 30s
       timeout: 5s
       start_period: 10s

@@ -13,6 +13,9 @@ const { log, logError } = require("../logger");
 const app = express();
 app.use(express.json());
 
+// Constants
+const ACTION_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
 // ========================
 // Admin Authentication
 // ========================
@@ -53,7 +56,7 @@ function createPendingAction(action, params) {
     params,
     status: "pending_confirmation",
     createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minute expiry
+    expiresAt: new Date(Date.now() + ACTION_EXPIRY_MS).toISOString(),
   };
   pendingActions.set(id, entry);
 
