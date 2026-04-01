@@ -446,7 +446,8 @@
       if (isDown) {
         banner.className = 'disconnected-banner visible';
         badge.className = 'status-badge status-err';
-        badge.innerHTML = '<span id="status-dot" class="status-indicator err"></span>DISCONNECTED';
+        if (dot) { dot.className = 'status-indicator err'; }
+        badge.lastChild.textContent = 'DISCONNECTED';
       } else {
         banner.className = 'disconnected-banner';
       }
@@ -475,7 +476,9 @@
         }
         setDisconnected(false);
         badge.className = 'status-badge status-ok';
-        badge.innerHTML = '<span id="status-dot" class="status-indicator ok"></span>OPERATIONAL';
+        var dot = document.getElementById('status-dot');
+        if (dot) { dot.className = 'status-indicator ok'; }
+        badge.lastChild.textContent = 'OPERATIONAL';
         document.getElementById('health-time').textContent = formatTime(data.timestamp);
         document.getElementById('m-status').textContent = data.status === 'ok' ? '✓ OK' : '✗ ERR';
         document.getElementById('m-status').style.color = data.status === 'ok' ? 'var(--green)' : 'var(--error)';
