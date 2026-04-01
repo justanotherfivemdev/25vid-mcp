@@ -168,6 +168,8 @@ describe("MCP Server", () => {
     it("GET /health returns ok", async () => {
       const res = await get("/health");
       assert.strictEqual(res.body.status, "ok");
+      assert.strictEqual(res.body.service, "mcp");
+      assert.ok(res.body.timestamp);
     });
 
     it("GET / redirects to /dashboard/", async () => {

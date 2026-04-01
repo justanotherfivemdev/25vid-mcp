@@ -10,7 +10,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache git grep
+RUN apk add --no-cache git grep curl
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
@@ -22,7 +22,7 @@ COPY public/ ./public/
 
 EXPOSE 8787 8788
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "const http=require('http');const port=process.env.HEALTHCHECK_PORT||'8787';http.get('http://localhost:'+port+'/health',(r)=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))})"
+HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=5 \
+  CMD curl -f http://localhost:${HEALTHCHECK_PORT:-8787}/health || exit 1
 
 CMD ["node", "server.js"]

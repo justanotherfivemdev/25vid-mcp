@@ -21,9 +21,14 @@ router.get("/", (req, res) => {
 // Serve dashboard UI static files
 router.use("/dashboard", express.static(path.join(__dirname, "../../public")));
 
-// Health check
+// Health check — used by Docker healthcheck and deploy scripts
 router.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", service: "mcp", timestamp: new Date().toISOString() });
+});
+
+// Readiness check — for future liveness vs readiness separation
+router.get("/ready", (req, res) => {
+  res.json({ status: "ok", service: "mcp", timestamp: new Date().toISOString() });
 });
 
 // Extended system health metrics
