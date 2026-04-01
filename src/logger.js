@@ -21,8 +21,8 @@ function log(entry) {
     ...entry,
   };
   const line = JSON.stringify(record) + "\n";
-  fs.appendFile(config.mcpLog, line, (err) => {
-    if (err) console.error("Failed to write log:", err.message);
+  fs.promises.appendFile(config.mcpLog, line).catch((err) => {
+    console.error("Failed to write log:", err.message);
   });
 }
 

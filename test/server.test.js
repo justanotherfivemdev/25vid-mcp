@@ -52,8 +52,13 @@ let server;
 describe("MCP Server", () => {
   before(async () => {
     setupTestWorkspace();
-    // Start server
-    const app = require("../server");
+    // Start server and wait for it to be ready
+    const { start } = require("../server");
+    server = await start(8787, "127.0.0.1");
+  });
+
+  after(() => {
+    if (server) server.close();
   });
 
   // ========================

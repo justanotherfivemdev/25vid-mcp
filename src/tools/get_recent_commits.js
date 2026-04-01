@@ -17,7 +17,7 @@ module.exports = {
     return new Promise((resolve, reject) => {
       execFile(
         "git",
-        ["log", `--oneline`, `-n`, String(count), "--format=%h %ai %s"],
+        ["log", `-n`, String(count), "--format=%h %ai %s"],
         { cwd: config.workspace, timeout: 10000 },
         (err, stdout, stderr) => {
           if (err) return reject(new Error(stderr || err.message));

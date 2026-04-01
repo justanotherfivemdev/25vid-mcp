@@ -37,14 +37,19 @@ app.post("/mcp", mcpHandler);
 // Dashboard and API routes
 app.use(dashboardRoutes);
 
-// Start server when run directly (not when required as module for testing)
+// Start server when run directly
 if (require.main === module) {
   app.listen(config.port, config.host, () => {
     console.log(`MCP server running on ${config.host}:${config.port}`);
   });
-} else {
-  // When required for testing, start on the same port
-  app.listen(config.port, config.host);
 }
 
-module.exports = app;
+// Export a function to start the server for testing
+module.exports = {
+  app,
+  start(port, host) {
+    return new Promise((resolve) => {
+      const server = app.listen(port || config.port, host || config.host, () => resolve(server));
+    });
+  },
+};
