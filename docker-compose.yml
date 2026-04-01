@@ -7,3 +7,15 @@ services:
       - "127.0.0.1:8787:8787"
     volumes:
       - /opt/25vid:/workspace
+      - mcp-logs:/opt/mcp/logs
+    environment:
+      - NODE_ENV=production
+      - MCP_WORKSPACE=/workspace
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mcp-logs:

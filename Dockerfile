@@ -2,10 +2,20 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY server.js .
+# Install git for git-based tools
+RUN apk add --no-cache git grep
 
-RUN npm install express
+# Copy dependency files first for better layer caching
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
+
+# Copy application source
+COPY server.js ./
+COPY src/ ./src/
 
 EXPOSE 8787
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:8787/health',(r)=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))})"
 
 CMD ["node", "server.js"]
