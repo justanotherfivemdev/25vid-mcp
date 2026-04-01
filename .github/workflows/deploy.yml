@@ -56,7 +56,7 @@ jobs:
           command_timeout: 10m
           script: |
             set -e
-            DEPLOY_DIR="${{ secrets.DEPLOY_DIR || '/opt/25vid/mcp' }}"
+            DEPLOY_DIR="${{ secrets.DEPLOY_DIR || '/opt/mcp-real' }}"
             LOG_DIR="/opt/mcp/logs"
             mkdir -p "$LOG_DIR"
             LOG_FILE="$LOG_DIR/deploy.log"
