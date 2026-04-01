@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>25th Infantry Division — MCP Command Center</title>
+  <title>25th Infantry Division — MCP Operations Center</title>
   <style>
     :root {
       --bg: #060a10;
@@ -27,7 +27,6 @@
       --success: #3fb950;
       --warning: #d29922;
       --error: #f85149;
-      --blue: #58a6ff;
       --radius: 12px;
       --radius-sm: 8px;
     }
@@ -39,7 +38,8 @@
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
     }
-    /* Header */
+
+    /* ===== Header ===== */
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -89,6 +89,15 @@
       align-items: center;
       gap: 12px;
     }
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .status-indicator.ok { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .status-indicator.err { background: var(--error); box-shadow: 0 0 8px var(--error); }
     .status-badge {
       padding: 5px 14px;
       border-radius: 20px;
@@ -96,6 +105,8 @@
       font-weight: 700;
       letter-spacing: 0.4px;
       text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
     }
     .status-ok {
       background: var(--green-dim);
@@ -111,111 +122,33 @@
       font-size: 11px;
       color: var(--text-dim);
     }
-    /* Hero / Enfusion Banner */
-    .hero-banner {
-      background: linear-gradient(135deg, var(--surface) 0%, #0d1a2e 50%, #0d1117 100%);
-      border-bottom: 1px solid var(--border);
-      padding: 28px 32px;
-      max-width: 1480px;
-      margin: 0 auto;
-    }
-    .hero-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-      flex-wrap: wrap;
-    }
-    .hero-text h2 {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text-bright);
-      margin-bottom: 6px;
-    }
-    .hero-text p {
-      font-size: 13px;
-      color: var(--text-dim);
-      line-height: 1.6;
-      max-width: 620px;
-    }
-    .hero-tags {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 10px;
-    }
-    .hero-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-    }
-    .hero-tag.enfusion {
-      background: var(--purple-dim);
-      color: var(--purple);
-      border: 1px solid rgba(188,140,255,0.25);
-    }
-    .hero-tag.mcp {
-      background: var(--accent-dim);
-      color: var(--accent);
-      border: 1px solid rgba(88,166,255,0.25);
-    }
-    .hero-tag.ops {
-      background: var(--green-dim);
-      color: var(--green);
-      border: 1px solid rgba(63,185,80,0.25);
-    }
-    .hero-stats {
-      display: flex;
-      gap: 20px;
-    }
-    .hero-stat {
-      text-align: center;
-      padding: 12px 20px;
-      background: var(--surface-raised);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      min-width: 90px;
-    }
-    .hero-stat .stat-value {
-      font-size: 24px;
-      font-weight: 800;
-      color: var(--accent);
-    }
-    .hero-stat .stat-label {
-      font-size: 10px;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-top: 2px;
-    }
-    /* Grid Layout */
-    .grid {
+
+    /* ===== Main Grid Layout ===== */
+    .dashboard {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr;
       gap: 16px;
       padding: 20px 32px;
       max-width: 1480px;
       margin: 0 auto;
+      min-height: calc(100vh - 64px - 56px);
     }
     @media (max-width: 960px) {
-      .grid { grid-template-columns: 1fr; }
-      .hero-inner { flex-direction: column; align-items: flex-start; }
-      .hero-stats { width: 100%; justify-content: flex-start; }
+      .dashboard { grid-template-columns: 1fr; }
       header { padding: 0 16px; }
-      .grid { padding: 16px; }
+      .dashboard { padding: 16px; }
     }
-    .full-width { grid-column: 1 / -1; }
-    /* Cards */
+    .bottom-row { grid-column: 1 / -1; }
+
+    /* ===== Cards ===== */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     .card:hover {
@@ -229,6 +162,7 @@
       align-items: center;
       justify-content: space-between;
       background: var(--surface-raised);
+      flex-shrink: 0;
     }
     .card-header h2 {
       font-size: 12px;
@@ -240,9 +174,7 @@
       align-items: center;
       gap: 8px;
     }
-    .card-header .icon {
-      font-size: 14px;
-    }
+    .card-header .icon { font-size: 14px; }
     .card-header .badge {
       font-size: 11px;
       color: var(--text-dim);
@@ -250,16 +182,28 @@
     }
     .card-body {
       padding: 16px 18px;
-      max-height: 420px;
+      max-height: 480px;
       overflow-y: auto;
+      flex: 1;
     }
     .card-body::-webkit-scrollbar { width: 5px; }
     .card-body::-webkit-scrollbar-track { background: transparent; }
     .card-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    /* Metrics */
+
+    /* ===== Bottom Grid (Health + Git) ===== */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 960px) {
+      .bottom-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ===== Metrics ===== */
     .metric-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: 10px;
     }
     .metric {
@@ -278,12 +222,13 @@
       font-weight: 600;
     }
     .metric-value {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 800;
       margin-top: 4px;
       color: var(--green);
     }
-    /* Logs */
+
+    /* ===== Activity Log Entries ===== */
     .log-entry {
       font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
       font-size: 12px;
@@ -301,7 +246,17 @@
     .log-success { color: var(--success); }
     .log-error { color: var(--error); }
     .log-duration { color: var(--text-dim); font-size: 11px; }
-    /* Git */
+
+    /* ===== Deploy Lines ===== */
+    .deploy-line {
+      font-family: 'SFMono-Regular', 'Menlo', monospace;
+      font-size: 11px;
+      line-height: 1.9;
+      color: var(--text-dim);
+      padding: 2px 0;
+    }
+
+    /* ===== Git ===== */
     .git-file {
       font-family: 'SFMono-Regular', 'Menlo', monospace;
       font-size: 12px;
@@ -315,108 +270,54 @@
       font-weight: 800;
       min-width: 22px;
     }
-    /* Deploy */
-    .deploy-line {
-      font-family: 'SFMono-Regular', 'Menlo', monospace;
+    .git-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
       font-size: 11px;
-      line-height: 1.9;
-      color: var(--text-dim);
-      padding: 2px 0;
+      font-weight: 600;
     }
-    /* Empty state */
+    .git-clean {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(63,185,80,0.3);
+    }
+    .git-dirty {
+      background: var(--gold-dim);
+      color: var(--gold);
+      border: 1px solid rgba(210,153,34,0.3);
+    }
+
+    /* ===== Empty State ===== */
     .empty-state {
       color: var(--text-dim);
       font-size: 13px;
       text-align: center;
       padding: 32px 16px;
     }
-    /* Tools section */
-    .tools-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 8px;
-    }
-    .tool-chip {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 12px 14px;
-      transition: border-color 0.2s, transform 0.15s;
-    }
-    .tool-chip:hover {
-      border-color: var(--accent);
-      transform: translateY(-1px);
-    }
-    .tool-chip .tool-name {
-      color: var(--accent);
-      font-weight: 700;
-      font-family: 'SFMono-Regular', 'Menlo', monospace;
-      font-size: 11px;
-    }
-    .tool-chip .tool-desc {
-      color: var(--text-dim);
-      font-size: 11px;
-      margin-top: 4px;
-      line-height: 1.5;
-    }
-    /* Enfusion Integration Card */
-    .enfusion-links {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 10px;
-    }
-    .enfusion-link {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 14px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      text-decoration: none;
-      color: var(--text);
-      transition: border-color 0.2s;
-    }
-    a.enfusion-link {
-      cursor: pointer;
-      transition: border-color 0.2s, transform 0.15s;
-    }
-    a.enfusion-link:hover {
-      border-color: var(--purple);
-      transform: translateY(-1px);
-    }
-    .enfusion-link .ef-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      flex-shrink: 0;
-    }
-    .enfusion-link .ef-icon.research { background: var(--accent-dim); }
-    .enfusion-link .ef-icon.generate { background: var(--green-dim); }
-    .enfusion-link .ef-icon.workbench { background: var(--purple-dim); }
-    .enfusion-link .ef-icon.assets { background: var(--gold-dim); }
-    .enfusion-link .ef-label {
+
+    /* ===== Disconnected Banner ===== */
+    .disconnected-banner {
+      display: none;
+      background: rgba(248,81,73,0.12);
+      color: var(--error);
+      text-align: center;
+      padding: 8px 16px;
       font-size: 12px;
       font-weight: 600;
-      color: var(--text-bright);
+      border-bottom: 1px solid rgba(248,81,73,0.3);
     }
-    .enfusion-link .ef-desc {
-      font-size: 10px;
-      color: var(--text-dim);
-      margin-top: 1px;
-    }
-    /* Footer */
+    .disconnected-banner.visible { display: block; }
+
+    /* ===== Footer ===== */
     footer {
       text-align: center;
-      padding: 24px;
+      padding: 16px 24px;
       color: var(--text-dim);
       font-size: 11px;
       border-top: 1px solid var(--border);
-      margin-top: 8px;
       background: var(--surface);
     }
     footer strong { color: var(--accent); }
@@ -430,143 +331,20 @@
       <div class="brand-icon">25</div>
       <div class="brand-text">
         <h1>25th Infantry Division</h1>
-        <div class="subtitle">MCP Command Center</div>
+        <div class="subtitle">MCP Operations Center</div>
       </div>
     </div>
     <div class="header-right">
-      <span id="health-badge" class="status-badge status-ok">Checking...</span>
-      <span class="refresh-info">Auto-refresh: 10s</span>
+      <span id="health-badge" class="status-badge status-ok"><span id="status-dot" class="status-indicator ok"></span>Checking...</span>
+      <span class="refresh-info">Auto-refresh: 5s</span>
     </div>
   </header>
 
-  <!-- Hero Banner -->
-  <div class="hero-banner">
-    <div class="hero-inner">
-      <div class="hero-text">
-        <h2>AI-Powered Coding Assistant</h2>
-        <p>Full-stack MCP server for AI-assisted development, Enfusion engine modding, deployment operations, and community tooling.</p>
-        <div class="hero-tags">
-          <span class="hero-tag mcp">&#x1F916; MCP Protocol</span>
-          <span class="hero-tag enfusion">&#x1F3AE; Enfusion Engine</span>
-          <span class="hero-tag ops">&#x1F680; DevOps Ready</span>
-        </div>
-      </div>
-      <div class="hero-stats">
-        <div class="hero-stat">
-          <div class="stat-value" id="hero-tools">—</div>
-          <div class="stat-label">MCP Tools</div>
-        </div>
-        <div class="hero-stat">
-          <div class="stat-value" id="hero-uptime">—</div>
-          <div class="stat-label">Uptime</div>
-        </div>
-        <div class="hero-stat">
-          <div class="stat-value" id="hero-status">—</div>
-          <div class="stat-label">Status</div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div id="disconnected" class="disconnected-banner">&#x26A0; Disconnected — retrying automatically...</div>
 
-  <div class="grid">
-    <!-- System Health -->
+  <div class="dashboard">
+    <!-- Left Panel: MCP Activity -->
     <div class="card">
-      <div class="card-header">
-        <h2><span class="icon">&#x1F4CA;</span> System Health</h2>
-        <span class="badge" id="health-time"></span>
-      </div>
-      <div class="card-body">
-        <div class="metric-grid" id="system-metrics">
-          <div class="metric"><div class="metric-label">Status</div><div class="metric-value" id="m-status">—</div></div>
-          <div class="metric"><div class="metric-label">Uptime</div><div class="metric-value" id="m-uptime">—</div></div>
-          <div class="metric"><div class="metric-label">Heap Used</div><div class="metric-value" id="m-memory">—</div></div>
-          <div class="metric"><div class="metric-label">CPU Load</div><div class="metric-value" id="m-load">—</div></div>
-          <div class="metric"><div class="metric-label">Node.js</div><div class="metric-value" id="m-node">—</div></div>
-          <div class="metric"><div class="metric-label">Free RAM</div><div class="metric-value" id="m-freemem">—</div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Git Status -->
-    <div class="card">
-      <div class="card-header">
-        <h2><span class="icon">&#x1F500;</span> Git Status</h2>
-        <span class="badge" id="git-branch"></span>
-      </div>
-      <div class="card-body" id="git-body">
-        <div class="empty-state">Loading...</div>
-      </div>
-    </div>
-
-    <!-- Enfusion Integration -->
-    <div class="card full-width">
-      <div class="card-header">
-        <h2><span class="icon">&#x1F3AE;</span> Enfusion Engine Integration</h2>
-        <span class="badge">Arma Reforger</span>
-      </div>
-      <div class="card-body">
-        <div class="enfusion-links">
-          <span class="enfusion-link" role="img" aria-label="API Research">
-            <span class="ef-icon research">&#x1F50D;</span>
-            <span>
-              <span class="ef-label">API Research</span>
-              <span class="ef-desc">8,693 classes indexed</span>
-            </span>
-          </span>
-          <span class="enfusion-link" role="img" aria-label="Code Generation">
-            <span class="ef-icon generate">&#x1F528;</span>
-            <span>
-              <span class="ef-label">Code Generation</span>
-              <span class="ef-desc">Scripts, prefabs, layouts</span>
-            </span>
-          </span>
-          <span class="enfusion-link" role="img" aria-label="Workbench Control">
-            <span class="ef-icon workbench">&#x1F5A5;</span>
-            <span>
-              <span class="ef-label">Workbench Control</span>
-              <span class="ef-desc">Live TCP editor bridge</span>
-            </span>
-          </span>
-          <span class="enfusion-link" role="img" aria-label="Game Assets">
-            <span class="ef-icon assets">&#x1F4E6;</span>
-            <span>
-              <span class="ef-label">Game Assets</span>
-              <span class="ef-desc">.pak archive access</span>
-            </span>
-          </span>
-          <a class="enfusion-link" href="https://github.com/steffenbk/enfusion-mcp-BK" target="_blank" rel="noopener">
-            <span class="ef-icon research">&#x1F517;</span>
-            <span>
-              <span class="ef-label">Enfusion MCP Repo</span>
-              <span class="ef-desc">v0.10.0 &mdash; 49 tools</span>
-            </span>
-          </a>
-          <span class="enfusion-link" role="img" aria-label="Wiki Guides">
-            <span class="ef-icon generate">&#x1F4D6;</span>
-            <span>
-              <span class="ef-label">250+ Wiki Guides</span>
-              <span class="ef-desc">Tutorials &amp; documentation</span>
-            </span>
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- MCP Tools -->
-    <div class="card full-width">
-      <div class="card-header">
-        <h2><span class="icon">&#x1F9E0;</span> Available MCP Tools</h2>
-        <span class="badge" id="tools-count"></span>
-      </div>
-      <div class="card-body">
-        <div class="tools-grid" id="tools-body">
-          <div class="empty-state">Loading...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- MCP Activity -->
-    <div class="card full-width">
       <div class="card-header">
         <h2><span class="icon">&#x26A1;</span> MCP Activity</h2>
         <span class="badge" id="activity-count"></span>
@@ -576,8 +354,8 @@
       </div>
     </div>
 
-    <!-- Deploy Logs -->
-    <div class="card full-width">
+    <!-- Right Panel: Deploy Logs -->
+    <div class="card">
       <div class="card-header">
         <h2><span class="icon">&#x1F680;</span> Deploy Logs</h2>
         <span class="badge" id="deploy-count"></span>
@@ -586,16 +364,53 @@
         <div class="empty-state">Loading...</div>
       </div>
     </div>
+
+    <!-- Bottom Row: System Health + Git Status -->
+    <div class="bottom-row">
+      <div class="bottom-grid">
+        <!-- System Health -->
+        <div class="card">
+          <div class="card-header">
+            <h2><span class="icon">&#x1F4CA;</span> System Health</h2>
+            <span class="badge" id="health-time"></span>
+          </div>
+          <div class="card-body">
+            <div class="metric-grid" id="system-metrics">
+              <div class="metric"><div class="metric-label">Status</div><div class="metric-value" id="m-status">—</div></div>
+              <div class="metric"><div class="metric-label">Uptime</div><div class="metric-value" id="m-uptime">—</div></div>
+              <div class="metric"><div class="metric-label">Heap Used</div><div class="metric-value" id="m-memory">—</div></div>
+              <div class="metric"><div class="metric-label">CPU Load</div><div class="metric-value" id="m-load">—</div></div>
+              <div class="metric"><div class="metric-label">Node.js</div><div class="metric-value" id="m-node">—</div></div>
+              <div class="metric"><div class="metric-label">Free RAM</div><div class="metric-value" id="m-freemem">—</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Git Status -->
+        <div class="card">
+          <div class="card-header">
+            <h2><span class="icon">&#x1F500;</span> Git Status</h2>
+            <span class="badge" id="git-branch"></span>
+          </div>
+          <div class="card-body" id="git-body">
+            <div class="empty-state">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <footer>
-    <strong>25th Infantry Division</strong> &mdash; AI-Powered MCP Command Center
+    <strong>25th Infantry Division</strong> &mdash; MCP Operations Center
     &mdash; Enfusion Integration via <a href="https://github.com/steffenbk/enfusion-mcp-BK" target="_blank" rel="noopener">enfusion-mcp v0.10.0</a>
   </footer>
 
   <script>
     var API_BASE = '';
-    var REFRESH_INTERVAL = 10000;
+    var REFRESH_INTERVAL = 5000;
+    var MAX_ACTIVITY_ENTRIES = 50;
+    var MAX_DEPLOY_ENTRIES = 100;
+    var disconnected = false;
 
     function formatBytes(bytes) {
       if (bytes < 1024) return bytes + ' B';
@@ -612,15 +427,6 @@
       return m + 'm ' + Math.floor(seconds % 60) + 's';
     }
 
-    function formatUptimeShort(seconds) {
-      var d = Math.floor(seconds / 86400);
-      var h = Math.floor((seconds % 86400) / 3600);
-      var m = Math.floor((seconds % 3600) / 60);
-      if (d > 0) return d + 'd';
-      if (h > 0) return h + 'h';
-      return m + 'm';
-    }
-
     function formatTime(ts) {
       if (!ts) return '';
       return new Date(ts).toLocaleTimeString();
@@ -630,6 +436,20 @@
       var div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;
+    }
+
+    function setDisconnected(isDown) {
+      disconnected = isDown;
+      var banner = document.getElementById('disconnected');
+      var badge = document.getElementById('health-badge');
+      var dot = document.getElementById('status-dot');
+      if (isDown) {
+        banner.className = 'disconnected-banner visible';
+        badge.className = 'status-badge status-err';
+        badge.innerHTML = '<span id="status-dot" class="status-indicator err"></span>DISCONNECTED';
+      } else {
+        banner.className = 'disconnected-banner';
+      }
     }
 
     function fetchJSON(url) {
@@ -647,24 +467,18 @@
     function updateHealth() {
       return fetchJSON('/api/system/health').then(function(data) {
         var badge = document.getElementById('health-badge');
-        var heroStatus = document.getElementById('hero-status');
-        var heroUptime = document.getElementById('hero-uptime');
         if (!data) {
-          badge.className = 'status-badge status-err';
-          badge.textContent = 'OFFLINE';
-          heroStatus.textContent = '✗';
-          heroStatus.style.color = 'var(--error)';
-          heroUptime.textContent = '—';
-          heroUptime.style.color = 'var(--text-dim)';
+          setDisconnected(true);
+          document.getElementById('m-status').textContent = '✗ ERR';
+          document.getElementById('m-status').style.color = 'var(--error)';
           return;
         }
+        setDisconnected(false);
         badge.className = 'status-badge status-ok';
-        badge.textContent = 'OPERATIONAL';
-        heroStatus.textContent = '✓';
-        heroStatus.style.color = 'var(--green)';
-        heroUptime.textContent = formatUptimeShort(data.uptime);
+        badge.innerHTML = '<span id="status-dot" class="status-indicator ok"></span>OPERATIONAL';
         document.getElementById('health-time').textContent = formatTime(data.timestamp);
         document.getElementById('m-status').textContent = data.status === 'ok' ? '✓ OK' : '✗ ERR';
+        document.getElementById('m-status').style.color = data.status === 'ok' ? 'var(--green)' : 'var(--error)';
         document.getElementById('m-uptime').textContent = formatUptime(data.uptime);
         document.getElementById('m-memory').textContent = formatBytes(data.memory.heapUsed);
         document.getElementById('m-load').textContent = data.os.loadAvg[0].toFixed(2);
@@ -679,41 +493,21 @@
         var branchEl = document.getElementById('git-branch');
         if (!data || data.error) {
           body.innerHTML = '<div class="empty-state">Git not available</div>';
+          branchEl.textContent = '';
           return;
         }
-        branchEl.textContent = 'Branch: ' + escapeHtml(data.branch);
+        branchEl.textContent = data.branch;
         if (data.clean) {
-          body.innerHTML = '<div class="empty-state" style="color:var(--success)">&#10003; Working tree clean</div>';
+          body.innerHTML = '<div style="padding:12px 0;"><span class="git-state git-clean">&#10003; Clean</span></div>' +
+            '<div class="empty-state" style="padding:16px 0;">Working tree is clean</div>';
         } else {
-          body.innerHTML = data.changes.map(function(c) {
+          var stateHtml = '<div style="padding:8px 0 12px;"><span class="git-state git-dirty">&#9998; ' + data.changes.length + ' change' + (data.changes.length !== 1 ? 's' : '') + '</span></div>';
+          var filesHtml = data.changes.map(function(c) {
             return '<div class="git-file"><span class="git-status-code">' +
               escapeHtml(c.status) + '</span><span>' + escapeHtml(c.file) + '</span></div>';
           }).join('');
+          body.innerHTML = stateHtml + filesHtml;
         }
-      });
-    }
-
-    function updateTools() {
-      return fetch(API_BASE + '/mcp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
-      }).then(function(r) { return r.json(); }).catch(function() { return null; })
-      .then(function(data) {
-        var body = document.getElementById('tools-body');
-        var countEl = document.getElementById('tools-count');
-        var heroTools = document.getElementById('hero-tools');
-        if (!data || !data.result || !data.result.tools) {
-          body.innerHTML = '<div class="empty-state">Could not load tools</div>';
-          return;
-        }
-        var tools = data.result.tools;
-        countEl.textContent = tools.length + ' tools';
-        heroTools.textContent = tools.length;
-        body.innerHTML = tools.map(function(t) {
-          return '<div class="tool-chip"><div class="tool-name">' + escapeHtml(t.name) +
-            '</div><div class="tool-desc">' + escapeHtml((t.description || '').substring(0, 90)) + '</div></div>';
-        }).join('');
       });
     }
 
@@ -723,6 +517,7 @@
         var countEl = document.getElementById('activity-count');
         if (!data || !data.activity) {
           body.innerHTML = '<div class="empty-state">No activity data</div>';
+          countEl.textContent = '';
           return;
         }
         countEl.textContent = data.activity.length + ' entries';
@@ -730,15 +525,15 @@
           body.innerHTML = '<div class="empty-state">No recent tool calls</div>';
           return;
         }
-        var entries = data.activity.slice().reverse();
+        var entries = data.activity.slice(-MAX_ACTIVITY_ENTRIES).reverse();
         body.innerHTML = entries.map(function(a) {
           var statusClass = a.success !== false ? 'log-success' : 'log-error';
           var statusText = a.success !== false ? '&#10003;' : '&#10007;';
           return '<div class="log-entry">' +
             '<span class="log-time">' + formatTime(a.timestamp) + '</span>' +
-            '<span class="log-tool">' + escapeHtml(a.tool || '') + '</span> ' +
+            '<span class="log-tool">' + escapeHtml(a.tool || '') + '</span>' +
             '<span class="' + statusClass + '">' + statusText + '</span>' +
-            (a.durationMs ? ' <span class="log-duration">' + a.durationMs + 'ms</span>' : '') +
+            (a.durationMs ? '<span class="log-duration">' + a.durationMs + 'ms</span>' : '') +
             '</div>';
         }).join('');
       });
@@ -750,6 +545,7 @@
         var countEl = document.getElementById('deploy-count');
         if (!data || !data.logs) {
           body.innerHTML = '<div class="empty-state">No deploy data</div>';
+          countEl.textContent = '';
           return;
         }
         countEl.textContent = data.logs.length + ' entries';
@@ -757,10 +553,12 @@
           body.innerHTML = '<div class="empty-state">No deploy logs yet</div>';
           return;
         }
-        var lines = data.logs.slice().reverse();
+        var lines = data.logs.slice(-MAX_DEPLOY_ENTRIES);
         body.innerHTML = lines.map(function(l) {
           return '<div class="deploy-line">' + escapeHtml(l) + '</div>';
         }).join('');
+        // Auto-scroll to newest entry
+        body.scrollTop = body.scrollHeight;
       });
     }
 
@@ -768,8 +566,7 @@
       return Promise.all([updateHealth(), updateGit(), updateActivity(), updateDeploy()]);
     }
 
-    // Load tools once, then poll the rest
-    updateTools();
+    // Initial load + polling
     refreshAll();
     setInterval(refreshAll, REFRESH_INTERVAL);
   </script>
