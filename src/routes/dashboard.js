@@ -13,6 +13,11 @@ const { getRecentLogs, getRecentActivity } = require("../logger");
 
 const router = express.Router();
 
+// Redirect root to dashboard
+router.get("/", (req, res) => {
+  res.redirect("/dashboard/");
+});
+
 // Serve dashboard UI static files
 router.use("/dashboard", express.static(path.join(__dirname, "../../public")));
 
