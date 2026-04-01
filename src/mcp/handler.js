@@ -1,28 +1,112 @@
 // =========================
 // MCP Request Handler
 // =========================
-// Handles JSON-RPC MCP protocol requests (tools/list, tools/call).
+// Handles JSON-RPC MCP protocol requests including the full MCP lifecycle:
+// initialize, notifications/initialized, ping, tools/list, tools/call.
+// Supports the Streamable HTTP transport (POST, GET SSE, DELETE session).
 
+const crypto = require("crypto");
 const registry = require("./registry");
 const { validateJsonRpc, jsonRpcSuccess, jsonRpcError } = require("./validator");
 const { logToolCall, logError } = require("../logger");
 const config = require("../config");
 
+const PROTOCOL_VERSION = "2025-03-26";
+
+// Active sessions: sessionId -> { initialized: boolean, createdAt: number }
+const sessions = new Map();
+
+// SSE clients: sessionId -> Set of response objects
+const sseClients = new Map();
+
+/**
+ * Clean up expired sessions (older than 30 minutes).
+ */
+setInterval(() => {
+  const maxAge = 30 * 60 * 1000;
+  const now = Date.now();
+  for (const [id, session] of sessions) {
+    if (now - session.createdAt > maxAge) {
+      // Close any open SSE connections before cleaning up the session
+      const clients = sseClients.get(id);
+      if (clients) {
+        for (const client of clients) {
+          try {
+            client.end();
+          } catch (e) {
+            // Ignore errors when attempting to close a client
+          }
+        }
+        sseClients.delete(id);
+      }
+      sessions.delete(id);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
 /**
  * Express route handler for POST /mcp.
- * Processes MCP JSON-RPC requests for tool listing and tool execution.
+ * Processes MCP JSON-RPC requests for the full protocol lifecycle.
  */
 async function mcpHandler(req, res) {
   const { id, method, params } = req.body;
   const requestId = req.requestId;
+  const isNotification = id === undefined;
 
-  // Validate JSON-RPC structure
+  // Validate JSON-RPC structure (always return errors for malformed requests)
   const validationError = validateJsonRpc(req.body);
   if (validationError) {
     return res.json(jsonRpcError(id, validationError.code, validationError.message));
   }
 
   try {
+    // ---- MCP Lifecycle: initialize ----
+    if (method === "initialize") {
+      const clientVersion = params && params.protocolVersion;
+      if (!clientVersion || clientVersion !== PROTOCOL_VERSION) {
+        return res.json(
+          jsonRpcError(id, -32602, `Unsupported protocol version: ${clientVersion || "missing"}. Server supports ${PROTOCOL_VERSION}`)
+        );
+      }
+
+      const sessionId = crypto.randomUUID();
+      sessions.set(sessionId, { initialized: false, createdAt: Date.now() });
+
+      res.setHeader("Mcp-Session-Id", sessionId);
+      return res.json(
+        jsonRpcSuccess(id, {
+          protocolVersion: PROTOCOL_VERSION,
+          capabilities: {
+            tools: {},
+          },
+          serverInfo: {
+            name: "25vid-mcp",
+            version: "2.0.0",
+          },
+        })
+      );
+    }
+
+    // ---- MCP Lifecycle: notifications/initialized ----
+    if (method === "notifications/initialized") {
+      const sessionId = req.headers["mcp-session-id"];
+      if (sessionId && sessions.has(sessionId)) {
+        sessions.get(sessionId).initialized = true;
+      }
+      // Notifications get no JSON-RPC response body
+      return res.status(204).end();
+    }
+
+    // ---- MCP Lifecycle: ping ----
+    if (method === "ping") {
+      return res.json(jsonRpcSuccess(id, {}));
+    }
+
+    // ---- MCP Lifecycle: notifications/cancelled ----
+    if (method === "notifications/cancelled") {
+      return res.status(204).end();
+    }
+
     // Handle tools/list
     if (method === "tools/list") {
       const tools = registry.listTools(config.toolScopes.public);
@@ -84,6 +168,7 @@ async function mcpHandler(req, res) {
     }
 
     // Unknown method
+    if (isNotification) return res.status(204).end();
     return res.json(jsonRpcError(id, -32601, `Unknown method: ${method}`));
   } catch (err) {
     logError({
@@ -93,8 +178,67 @@ async function mcpHandler(req, res) {
       context: "mcpHandler",
     });
 
+    if (isNotification) return res.status(204).end();
     return res.json(jsonRpcError(id, -32603, "Internal error"));
   }
 }
 
-module.exports = { mcpHandler };
+/**
+ * Express route handler for GET /mcp (SSE stream).
+ * Opens a Server-Sent Events stream for server-initiated messages.
+ */
+function mcpSseHandler(req, res) {
+  const sessionId = req.headers["mcp-session-id"];
+  if (!sessionId || !sessions.has(sessionId)) {
+    return res.status(400).json({ error: "Missing or invalid Mcp-Session-Id header" });
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  if (typeof res.flushHeaders === "function") {
+    res.flushHeaders();
+  }
+
+  // Register this SSE client
+  if (!sseClients.has(sessionId)) {
+    sseClients.set(sessionId, new Set());
+  }
+  sseClients.get(sessionId).add(res);
+
+  // Clean up when client disconnects
+  req.on("close", () => {
+    const clients = sseClients.get(sessionId);
+    if (clients) {
+      clients.delete(res);
+      if (clients.size === 0) sseClients.delete(sessionId);
+    }
+  });
+}
+
+/**
+ * Express route handler for DELETE /mcp (session termination).
+ * Terminates an active MCP session.
+ */
+function mcpDeleteHandler(req, res) {
+  const sessionId = req.headers["mcp-session-id"];
+  if (!sessionId || !sessions.has(sessionId)) {
+    return res.status(400).json({ error: "Missing or invalid Mcp-Session-Id header" });
+  }
+
+  // Close any open SSE connections for this session
+  const clients = sseClients.get(sessionId);
+  if (clients) {
+    for (const client of clients) {
+      client.end();
+    }
+    sseClients.delete(sessionId);
+  }
+
+  sessions.delete(sessionId);
+  return res.status(204).end();
+}
+
+module.exports = { mcpHandler, mcpSseHandler, mcpDeleteHandler, sessions, sseClients };

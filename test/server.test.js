@@ -47,6 +47,71 @@ function get(path) {
   });
 }
 
+function postRaw(path, body, extraHeaders = {}) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const req = http.request(
+      { hostname: "127.0.0.1", port: 8787, path, method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data), ...extraHeaders } },
+      (res) => {
+        let chunks = "";
+        res.on("data", (c) => (chunks += c));
+        res.on("end", () => {
+          let parsed = null;
+          try { parsed = chunks ? JSON.parse(chunks) : null; } catch { /* empty or non-JSON response */ }
+          resolve({ status: res.statusCode, body: parsed, headers: res.headers });
+        });
+      }
+    );
+    req.on("error", reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+function del(path, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: "127.0.0.1", port: 8787, path, method: "DELETE", headers },
+      (res) => {
+        let chunks = "";
+        res.on("data", (c) => (chunks += c));
+        res.on("end", () => {
+          let parsed = null;
+          try { parsed = chunks ? JSON.parse(chunks) : null; } catch { /* empty or non-JSON response */ }
+          resolve({ status: res.statusCode, body: parsed, headers: res.headers });
+        });
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+function getRaw(path, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: "127.0.0.1", port: 8787, path, method: "GET", headers },
+      (res) => {
+        // For SSE streams, resolve immediately with status and headers
+        // (don't wait for body end since it's a long-lived stream)
+        if (res.headers["content-type"] && res.headers["content-type"].includes("text/event-stream")) {
+          resolve({ status: res.statusCode, headers: res.headers, stream: res });
+          return;
+        }
+        let chunks = "";
+        res.on("data", (c) => (chunks += c));
+        res.on("end", () => {
+          let parsed = null;
+          try { parsed = chunks ? JSON.parse(chunks) : null; } catch { /* empty or non-JSON response */ }
+          resolve({ status: res.statusCode, body: parsed, headers: res.headers });
+        });
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 let server;
 
 describe("MCP Server", () => {
@@ -157,6 +222,106 @@ describe("MCP Server", () => {
     it("includes request ID header", async () => {
       const res = await post("/mcp", { jsonrpc: "2.0", id: 1, method: "tools/list" });
       assert.ok(res.headers["x-request-id"]);
+    });
+
+    // ---- Streamable HTTP transport lifecycle ----
+
+    it("initialize returns server capabilities and session ID", async () => {
+      const res = await post("/mcp", {
+        jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+      });
+      assert.strictEqual(res.body.jsonrpc, "2.0");
+      assert.strictEqual(res.body.id, 1);
+      assert.ok(res.body.result);
+      assert.strictEqual(res.body.result.protocolVersion, "2025-03-26");
+      assert.ok(res.body.result.capabilities);
+      assert.ok(res.body.result.capabilities.tools);
+      assert.ok(res.body.result.serverInfo);
+      assert.strictEqual(res.body.result.serverInfo.name, "25vid-mcp");
+      assert.ok(res.headers["mcp-session-id"]);
+    });
+
+    it("notifications/initialized returns 204", async () => {
+      // First initialize to get session ID
+      const initRes = await post("/mcp", {
+        jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+      });
+      const sessionId = initRes.headers["mcp-session-id"];
+
+      const res = await postRaw("/mcp", { jsonrpc: "2.0", method: "notifications/initialized" }, { "mcp-session-id": sessionId });
+      assert.strictEqual(res.status, 204);
+    });
+
+    it("ping returns empty result", async () => {
+      const res = await post("/mcp", { jsonrpc: "2.0", id: 1, method: "ping" });
+      assert.strictEqual(res.body.jsonrpc, "2.0");
+      assert.strictEqual(res.body.id, 1);
+      assert.ok(res.body.result);
+    });
+
+    it("DELETE /mcp terminates session", async () => {
+      // Initialize to get session
+      const initRes = await post("/mcp", {
+        jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+      });
+      const sessionId = initRes.headers["mcp-session-id"];
+
+      const res = await del("/mcp", { "mcp-session-id": sessionId });
+      assert.strictEqual(res.status, 204);
+    });
+
+    it("DELETE /mcp rejects missing session", async () => {
+      const res = await del("/mcp", {});
+      assert.strictEqual(res.status, 400);
+    });
+
+    it("GET /mcp SSE rejects missing session ID", async () => {
+      const res = await getRaw("/mcp", {});
+      assert.strictEqual(res.status, 400);
+    });
+
+    it("GET /mcp SSE rejects invalid session ID", async () => {
+      const res = await getRaw("/mcp", { "mcp-session-id": "nonexistent-id" });
+      assert.strictEqual(res.status, 400);
+    });
+
+    it("GET /mcp SSE returns text/event-stream for valid session", async () => {
+      // Initialize to get a session
+      const initRes = await post("/mcp", {
+        jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+      });
+      const sessionId = initRes.headers["mcp-session-id"];
+
+      const res = await getRaw("/mcp", { "mcp-session-id": sessionId });
+      assert.strictEqual(res.status, 200);
+      assert.ok(res.headers["content-type"].includes("text/event-stream"));
+
+      // Clean up the SSE stream
+      if (res.stream) res.stream.destroy();
+    });
+
+    it("initialize rejects unsupported protocol version", async () => {
+      const res = await post("/mcp", {
+        jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { protocolVersion: "1999-01-01", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+      });
+      assert.ok(res.body.error);
+      assert.strictEqual(res.body.error.code, -32602);
+      assert.ok(res.body.error.message.includes("Unsupported protocol version"));
+    });
+
+    it("initialize rejects missing protocol version", async () => {
+      const res = await post("/mcp", {
+        jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+      });
+      assert.ok(res.body.error);
+      assert.strictEqual(res.body.error.code, -32602);
+      assert.ok(res.body.error.message.includes("missing"));
     });
   });
 
