@@ -172,6 +172,13 @@ describe("MCP Server", () => {
       assert.ok(res.body.timestamp);
     });
 
+    it("GET /ready returns ok", async () => {
+      const res = await get("/ready");
+      assert.strictEqual(res.body.status, "ok");
+      assert.strictEqual(res.body.service, "mcp");
+      assert.ok(res.body.timestamp);
+    });
+
     it("GET / redirects to /dashboard/", async () => {
       const res = await getRawNoFollow("/");
       assert.ok(res.status >= 300 && res.status < 400, `Expected 3xx redirect, got ${res.status}`);

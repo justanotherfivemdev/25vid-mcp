@@ -21,8 +21,8 @@ const ACTION_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 // ========================
 
 function adminAuthMiddleware(req, res, next) {
-  // Skip auth for health check
-  if (req.path === "/health") return next();
+  // Skip auth for health and readiness probes
+  if (req.path === "/health" || req.path === "/ready") return next();
 
   const token = req.headers["x-admin-token"];
   const adminToken = process.env.MCP_ADMIN_TOKEN;

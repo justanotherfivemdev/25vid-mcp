@@ -90,15 +90,17 @@ jobs:
               MCP_STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcp-server 2>/dev/null || echo "unknown")
               ADMIN_STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcp-admin-server 2>/dev/null || echo "unknown")
 
-              if [ "$MCP_STATUS" = "healthy" ]; then
+              # Check current statuses each iteration (no latching) to catch regressions
+              if [ "$MCP_STATUS" = "healthy" ] && [ "$ADMIN_STATUS" = "healthy" ]; then
+                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Both containers healthy after ${ELAPSED}s" >> "$LOG_FILE"
                 MCP_HEALTHY=true
-              fi
-              if [ "$ADMIN_STATUS" = "healthy" ]; then
                 ADMIN_HEALTHY=true
+                break
               fi
 
-              if [ "$MCP_HEALTHY" = true ] && [ "$ADMIN_HEALTHY" = true ]; then
-                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Both containers healthy after ${ELAPSED}s" >> "$LOG_FILE"
+              # Fail fast if either container is definitively unhealthy
+              if [ "$MCP_STATUS" = "unhealthy" ] || [ "$ADMIN_STATUS" = "unhealthy" ]; then
+                echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Container reported unhealthy: mcp-server=$MCP_STATUS mcp-admin-server=$ADMIN_STATUS" >> "$LOG_FILE"
                 break
               fi
 
@@ -106,7 +108,12 @@ jobs:
               ELAPSED=$((ELAPSED + POLL_INTERVAL))
             done
 
-            # Evaluate final health status
+            # Evaluate final health status (re-check current state, not latched values)
+            MCP_STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcp-server 2>/dev/null || echo "unknown")
+            ADMIN_STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcp-admin-server 2>/dev/null || echo "unknown")
+            [ "$MCP_STATUS" = "healthy" ] && MCP_HEALTHY=true
+            [ "$ADMIN_STATUS" = "healthy" ] && ADMIN_HEALTHY=true
+
             if [ "$MCP_HEALTHY" = false ] || [ "$ADMIN_HEALTHY" = false ]; then
               echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Deploy FAILED — health status: mcp-server=$MCP_STATUS mcp-admin-server=$ADMIN_STATUS (after ${ELAPSED}s)" >> "$LOG_FILE"
 

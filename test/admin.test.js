@@ -94,6 +94,13 @@ describe("Admin MCP Server", () => {
       assert.strictEqual(res.body.service, "mcp-admin");
       assert.ok(res.body.timestamp);
     });
+
+    it("GET /ready returns ok without token", async () => {
+      const res = await get("/ready");
+      assert.strictEqual(res.body.status, "ok");
+      assert.strictEqual(res.body.service, "mcp-admin");
+      assert.ok(res.body.timestamp);
+    });
   });
 
   // ========================
